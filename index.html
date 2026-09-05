@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Christmas 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<main>
+  <header>
+    <h1>Christmas 2026</h1>
+    <p class="lede">Every letter is a note. Ring the bells and see who shows up.</p>
+    <button id="canon" type="button" aria-pressed="false">
+      <span class="glyph">&#9654;</span> Play the Canon
+    </button>
+  </header>
+
+  <section id="keyboard" aria-label="Notes"></section>
+
+  <section id="results">
+    <div class="results-head">
+      <span id="count"></span>
+      <button id="clear" type="button">Clear</button>
+    </div>
+    <div id="names" aria-live="polite"></div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
