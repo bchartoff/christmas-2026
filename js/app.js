@@ -139,6 +139,10 @@ function findMouth(boxes) {
 // mouth subpath merges into it invisibly, so there the oval has to be punched
 // out with a mask instead. Which case applies is decided by asking whether the
 // mouth's own centre is already filled once its subpath is removed.
+// Which parts had their mouth punched out with a mask rather than added as a
+// subpath. Those two stack the other way round -- see layerOpacity.
+const SOLID_HEAD = [];
+
 function loadCarolers() {
   return Promise.all(
     CAROLERS.map((url) => fetch(url).then((r) => r.text()))
@@ -164,6 +168,7 @@ function loadCarolers() {
 
       const full = subs.join(" ");
       if (mouth === -1) {
+        SOLID_HEAD[i] = false;
         addSymbol(defs, `caroler-${i}-open`, full);
         addSymbol(defs, `caroler-${i}-closed`, full);
         return;
@@ -174,6 +179,7 @@ function loadCarolers() {
       const centre = new DOMPoint(box.x + box.width / 2, box.y + box.height / 2);
       const solidHead = measure(without, (n) => n.isPointInFill(centre));
 
+      SOLID_HEAD[i] = solidHead;
       if (solidHead) {
         const mask = defs
           .append("mask")
@@ -214,15 +220,25 @@ function addSymbol(defs, id, d) {
     .attr("d", d);
 }
 
-// Both states are always present, stacked. The open one is faded in and out
-// per note rather than swapped, which is what lets the mouth animate at all --
-// switching the reference would only ever snap between two frames.
+// Both states are stacked and the top one is faded per note, which is what
+// lets the mouth animate rather than snap between two frames.
+//
+// Which state goes on top depends on the artwork. Cross-fading only reveals
+// anything if the upper layer is opaque where the two differ: on a solid head
+// the open state is a hole, so it can never cover the closed one beneath it
+// and the mouth would stay shut at every opacity. There the closed state sits
+// on top and is faded *out* to open the mouth; on the hooded figures, where
+// the mouth is a positive oval, the open state sits on top and is faded in.
 const MOUTH_ATTACK = 0.05;
 const MOUTH_DECAY = 0.14;
 
 const singing = new Map();
 let openLayer = d3.selectAll(null);
 let raf = null;
+
+function layerOpacity(d, open) {
+  return SOLID_HEAD[partIndex(d.midi)] ? 1 - open : open;
+}
 
 function openness(list, t) {
   let best = 0;
@@ -241,9 +257,9 @@ function animateMouths() {
   const t = audioTime();
   openLayer.attr("opacity", (d) => {
     const list = singing.get(d.letter);
-    if (!list) return 0;
+    if (!list) return layerOpacity(d, 0);
     while (list.length && list[0].end + MOUTH_DECAY < t) list.shift();
-    return openness(list, t);
+    return layerOpacity(d, openness(list, t));
   });
   raf = requestAnimationFrame(animateMouths);
 }
@@ -256,7 +272,7 @@ function stopMouths() {
   if (raf !== null) cancelAnimationFrame(raf);
   raf = null;
   singing.clear();
-  openLayer.attr("opacity", 0);
+  openLayer.attr("opacity", (d) => layerOpacity(d, 0));
 }
 
 function buildChoir() {
@@ -288,16 +304,22 @@ function buildChoir() {
   const figure = bars.append("g").attr("class", "figure");
   figure
     .append("use")
-    .attr("href", (d) => `#caroler-${partIndex(d.midi)}-closed`)
+    .attr("href", (d) => {
+      const p = partIndex(d.midi);
+      return `#caroler-${p}-${SOLID_HEAD[p] ? "open" : "closed"}`;
+    })
     .attr("width", FIGURE)
     .attr("height", FIGURE);
   openLayer = figure
     .append("use")
-    .attr("class", "caroler-open")
-    .attr("href", (d) => `#caroler-${partIndex(d.midi)}-open`)
+    .attr("class", "mouth-layer")
+    .attr("href", (d) => {
+      const p = partIndex(d.midi);
+      return `#caroler-${p}-${SOLID_HEAD[p] ? "closed" : "open"}`;
+    })
     .attr("width", FIGURE)
     .attr("height", FIGURE)
-    .attr("opacity", 0);
+    .attr("opacity", (d) => layerOpacity(d, 0));
 
   bars
     .append("text")
