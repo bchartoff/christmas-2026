@@ -42,24 +42,181 @@ function partIndex(midi) {
   return PARTS.indexOf(partFor(midi));
 }
 
-// Inline each file as a <symbol> so the artwork stays a single source of truth
-// on disk while still inheriting fill from the page. The paths carry no fill
-// attribute of their own, so CSS colours them without the files being touched.
+// Path data in these files is entirely relative, so a subpath cannot simply be
+// cut out at its "m" -- the next one would then be positioned from the origin
+// instead of from where the previous ended. Walk the commands, track the point,
+// and re-emit each subpath with an absolute start.
+const ARG_COUNT = { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7, z: 0 };
+
+function splitSubpaths(d) {
+  const tok = d.match(/[a-zA-Z]|-?\d*\.?\d+/g);
+  let i = 0;
+  let x = 0;
+  let y = 0;
+  let sx = 0;
+  let sy = 0;
+  let cmd = null;
+  let open = null;
+  const spans = [];
+
+  while (i < tok.length) {
+    if (/[a-zA-Z]/.test(tok[i])) {
+      cmd = tok[i];
+      i += 1;
+    }
+    const lo = cmd.toLowerCase();
+    const rel = cmd === lo;
+    const n = ARG_COUNT[lo];
+    const a = tok.slice(i, i + n).map(Number);
+
+    if (lo === "m") {
+      if (open) {
+        open.end = i - 1;
+        spans.push(open);
+      }
+      x = rel ? x + a[0] : a[0];
+      y = rel ? y + a[1] : a[1];
+      sx = x;
+      sy = y;
+      open = { start: i - 1, sx, sy };
+      cmd = rel ? "l" : "L";
+    } else if (lo === "l") {
+      x = rel ? x + a[0] : a[0];
+      y = rel ? y + a[1] : a[1];
+    } else if (lo === "h") {
+      x = rel ? x + a[0] : a[0];
+    } else if (lo === "v") {
+      y = rel ? y + a[0] : a[0];
+    } else if (lo === "c") {
+      x = rel ? x + a[4] : a[4];
+      y = rel ? y + a[5] : a[5];
+    } else if (lo === "s") {
+      x = rel ? x + a[2] : a[2];
+      y = rel ? y + a[3] : a[3];
+    } else if (lo === "z") {
+      x = sx;
+      y = sy;
+    }
+    i += n;
+  }
+  if (open) {
+    open.end = tok.length;
+    spans.push(open);
+  }
+
+  return spans.map((sp) => {
+    const t = tok.slice(sp.start, sp.end);
+    t[0] = "M";
+    t[1] = sp.sx;
+    t[2] = sp.sy;
+    return t.join(" ");
+  });
+}
+
+// The mouth is a small oval, taller than it is wide, sitting near the middle of
+// the face. Every other subpath is either the head, the body, or a hand, all of
+// which are far larger or well off centre.
+function findMouth(boxes) {
+  let best = -1;
+  boxes.forEach((b, i) => {
+    const ratio = b.width / b.height;
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+    const oval = ratio > 0.5 && ratio < 0.95;
+    const small = b.width < 200 && b.height < 250;
+    if (oval && small && Math.abs(cx - 600) < 150 && cy < 600) {
+      if (best === -1 || b.width * b.height < boxes[best].width * boxes[best].height) {
+        best = i;
+      }
+    }
+  });
+  return best;
+}
+
+// The two artwork styles are built oppositely. On the hooded figures the face
+// is a cut-out and the mouth is a positive oval inside it, so the mouth appears
+// by adding its subpath. On the round-headed ones the head is solid and the
+// mouth subpath merges into it invisibly, so there the oval has to be punched
+// out with a mask instead. Which case applies is decided by asking whether the
+// mouth's own centre is already filled once its subpath is removed.
 function loadCarolers() {
   return Promise.all(
     CAROLERS.map((url) => fetch(url).then((r) => r.text()))
   ).then((docs) => {
     const defs = svg.append("defs");
+    const probe = svg
+      .append("svg")
+      .attr("viewBox", "0 0 1200 1200")
+      .style("visibility", "hidden");
+
+    const measure = (d, fn) => {
+      const node = probe.append("path").attr("d", d).node();
+      const result = fn(node);
+      node.remove();
+      return result;
+    };
+
     docs.forEach((text, i) => {
       const parsed = new DOMParser().parseFromString(text, "image/svg+xml");
-      const path = parsed.querySelector("path");
-      const symbol = defs
-        .append("symbol")
-        .attr("id", `caroler-${i}`)
-        .attr("viewBox", "0 0 1200 1200");
-      symbol.node().appendChild(document.importNode(path, true));
+      const subs = splitSubpaths(parsed.querySelector("path").getAttribute("d"));
+      const boxes = subs.map((d) => measure(d, (n) => n.getBBox()));
+      const mouth = findMouth(boxes);
+
+      const full = subs.join(" ");
+      if (mouth === -1) {
+        addSymbol(defs, `caroler-${i}-open`, full);
+        addSymbol(defs, `caroler-${i}-closed`, full);
+        return;
+      }
+
+      const without = subs.filter((_, k) => k !== mouth).join(" ");
+      const box = boxes[mouth];
+      const centre = new DOMPoint(box.x + box.width / 2, box.y + box.height / 2);
+      const solidHead = measure(without, (n) => n.isPointInFill(centre));
+
+      if (solidHead) {
+        const mask = defs
+          .append("mask")
+          .attr("id", `mouth-${i}`)
+          .attr("maskUnits", "userSpaceOnUse")
+          .attr("x", 0)
+          .attr("y", 0)
+          .attr("width", 1200)
+          .attr("height", 1200);
+        mask.append("rect").attr("width", 1200).attr("height", 1200).attr("fill", "#fff");
+        mask.append("path").attr("d", subs[mouth]).attr("fill", "#000");
+
+        defs
+          .append("symbol")
+          .attr("id", `caroler-${i}-open`)
+          .attr("viewBox", "0 0 1200 1200")
+          .append("g")
+          .attr("mask", `url(#mouth-${i})`)
+          .append("path")
+          .attr("d", full);
+        addSymbol(defs, `caroler-${i}-closed`, full);
+      } else {
+        addSymbol(defs, `caroler-${i}-open`, full);
+        addSymbol(defs, `caroler-${i}-closed`, without);
+      }
     });
+
+    probe.remove();
   });
+}
+
+function addSymbol(defs, id, d) {
+  defs
+    .append("symbol")
+    .attr("id", id)
+    .attr("viewBox", "0 0 1200 1200")
+    .append("path")
+    .attr("d", d);
+}
+
+function carolerHref(d) {
+  const state = selected.has(d.letter) ? "open" : "closed";
+  return `#caroler-${partIndex(d.midi)}-${state}`;
 }
 
 function buildChoir() {
@@ -91,7 +248,7 @@ function buildChoir() {
   bars
     .append("use")
     .attr("class", "caroler")
-    .attr("href", (d) => `#caroler-${partIndex(d.midi)}`)
+    .attr("href", carolerHref)
     .attr("width", FIGURE)
     .attr("height", FIGURE);
 
@@ -131,6 +288,7 @@ function matchedNames() {
 
 function render() {
   bars.classed("is-on", (d) => selected.has(d.letter));
+  bars.select("use.caroler").attr("href", carolerHref);
 
   const found = matchedNames();
 
