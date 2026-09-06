@@ -24,6 +24,9 @@ const FIGURE = 100;
 const COL_W = 122;
 const LABEL_H = 34;
 const ROW_H = LABEL_H + FIGURE + 14;
+const SECTION_NAMES = ["Bass", "Tenor", "Alto", "Soprano"];
+const SECTION_GAP = 0.55; // in columns
+const BAND = 34;          // room above a row for its section names
 
 // Fewer carolers per row on a narrow screen. Squeezing all eighteen across
 // shrinks each figure until neither it nor its note label can be read.
@@ -54,16 +57,84 @@ function positionGlow() {
   glow.style.setProperty("--star-y", `${((r.top + r.height / 2) / window.innerHeight) * 100}%`);
 }
 
+// Letters are already in pitch order and the parts are pitch ranges, so each
+// section is a contiguous run.
+const SECTIONS = (() => {
+  const out = [];
+  LETTER_NOTES.forEach((d, i) => {
+    const part = PARTS.indexOf(partFor(d.midi));
+    if (!out.length || out[out.length - 1].part !== part) out.push({ part, idx: [] });
+    out[out.length - 1].idx.push(i);
+  });
+  return out;
+})();
+
+// Pack sections into rows, keeping each one whole where it fits and splitting
+// only a section that is wider than the row itself.
+function packRows(cols) {
+  const rows = [];
+  let cur = [];
+  let used = 0;
+  const flush = () => {
+    if (cur.length) rows.push(cur);
+    cur = [];
+    used = 0;
+  };
+  SECTIONS.forEach((sec) => {
+    // Start a fresh row unless the whole section fits in what is left, so a
+    // section never trails one stray figure onto the end of another's row.
+    if (used > 0 && used + sec.idx.length > cols) flush();
+    let rest = sec.idx;
+    let first = true;
+    while (rest.length) {
+      if (used >= cols) flush();
+      const take = Math.min(rest.length, cols - used);
+      cur.push({ part: sec.part, idx: rest.slice(0, take), labelled: first });
+      first = false;
+      rest = rest.slice(take);
+      used += take;
+    }
+  });
+  flush();
+  return rows;
+}
+
 function layout() {
   positionGlow();
   const cols = perRow();
-  const rows = Math.ceil(LETTER_NOTES.length / cols);
-  svg.attr("viewBox", `0 0 ${cols * COL_W} ${rows * ROW_H}`);
-  bars.attr("transform", (d, i) => {
-    const x = (i % cols) * COL_W + (COL_W - FIGURE) / 2;
-    const y = Math.floor(i / cols) * ROW_H;
-    return `translate(${x},${y})`;
+  const rows = packRows(cols);
+  const widthOf = (row) =>
+    row.reduce((a, g) => a + g.idx.length, 0) + SECTION_GAP * (row.length - 1);
+  const widest = Math.max(...rows.map(widthOf));
+  const place = new Array(LETTER_NOTES.length);
+  const labels = [];
+
+  rows.forEach((row, r) => {
+    let col = (widest - widthOf(row)) / 2;
+    const top = r * (ROW_H + BAND) + BAND;
+    row.forEach((g) => {
+      if (g.labelled) {
+        labels.push({ part: g.part, x: (col + g.idx.length / 2) * COL_W, y: top - 13 });
+      }
+      g.idx.forEach((letterIndex, k) => {
+        place[letterIndex] = { x: (col + k) * COL_W + (COL_W - FIGURE) / 2, y: top };
+      });
+      col += g.idx.length + SECTION_GAP;
+    });
   });
+
+  svg.attr("viewBox", `0 0 ${widest * COL_W} ${rows.length * (ROW_H + BAND)}`);
+  bars.attr("transform", (d, i) => `translate(${place[i].x},${place[i].y})`);
+
+  svg
+    .selectAll("text.section")
+    .data(labels)
+    .join("text")
+    .attr("class", "section")
+    .attr("x", (l) => l.x)
+    .attr("y", (l) => l.y)
+    .attr("text-anchor", "middle")
+    .text((l) => SECTION_NAMES[l.part]);
 }
 
 function partIndex(midi) {

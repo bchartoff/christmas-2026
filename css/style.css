@@ -115,6 +115,18 @@ main {
 
 #keyboard svg { width: 100%; height: auto; overflow: visible; }
 
+/* Section names. Basses and tenors are drawn identically -- same round head,
+   same shoulders -- so nothing but position and this label tells them apart. */
+.section {
+  fill: var(--muted);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .bar { cursor: pointer; outline: none; }
 
 .bar-hit { fill: transparent; }
