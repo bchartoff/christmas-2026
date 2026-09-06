@@ -360,10 +360,6 @@ function render() {
 
   const found = matchedNames();
 
-  d3.select("#count").text(
-    found.length ? `${found.length} of ${NAMES.length}` : ""
-  );
-
   d3.select("#names")
     .selectAll("span.name")
     .data(found, (d) => d)
@@ -374,7 +370,7 @@ function render() {
           .attr("class", "name")
           .text((d) => d)
           .style("opacity", 0)
-          .call((s) => s.transition().duration(400).style("opacity", 1)),
+          .call((s) => s.transition().duration(550).style("opacity", 1)),
       (update) => update,
       (exit) => exit.transition().duration(200).style("opacity", 0).remove()
     );
