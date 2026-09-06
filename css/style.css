@@ -100,11 +100,10 @@ main {
 
 .bar:hover .figure { fill: var(--pine-lit); }
 
-.bar:focus-visible .bar-hit {
-  fill: rgba(230, 180, 90, 0.1);
-  stroke: var(--gold);
-  stroke-width: 2;
-}
+/* No focus box. A keyboard user still sees where they are: the figure lifts
+   to its hover colour and the letter above it appears, which is a clearer
+   indicator here than a rectangle drawn round a caroler. */
+.bar:focus-visible .figure { fill: var(--pine-lit); }
 
 .bar.is-on .figure {
   fill: var(--gold);
