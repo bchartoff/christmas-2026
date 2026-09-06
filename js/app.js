@@ -349,10 +349,17 @@ function toggle(d) {
   render();
 }
 
+// The chosen letters must be exactly a name's, not merely include them.
+// Under a subset test every extra caroler leaves earlier names standing, so
+// BENC would still be showing BEN.
 function matchedNames() {
-  return NAMES.filter((name) =>
-    [...name].every((letter) => selected.has(letter))
-  );
+  return NAMES.filter((name) => {
+    const letters = new Set(name);
+    return (
+      letters.size === selected.size &&
+      [...letters].every((letter) => selected.has(letter))
+    );
+  });
 }
 
 function render() {
