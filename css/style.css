@@ -1,6 +1,6 @@
 :root {
   --bg: #05070f;
-  --bg-glow: #131d33;
+  --bg-glow: rgba(26, 40, 74, 0.5);
   --ink: #f5ecd8;
   --muted: #7d879b;
   --stone: #4d5666;
@@ -15,11 +15,11 @@
 
 body {
   margin: 0;
-  /* Ambient only: a warm rise from the floor and a faint cool lift behind the
-     choir. The bright light comes from the star, and only once it is there. */
+  /* Barely-there ambient: a cool wash from directly overhead and the faintest
+     warm rise from the floor. Kept this low so the star has somewhere to go. */
   background:
-    radial-gradient(ellipse 70% 42% at 50% 104%, rgba(192, 57, 47, 0.10) 0%, transparent 72%),
-    radial-gradient(ellipse 85% 58% at 50% 34%, var(--bg-glow) 0%, transparent 72%),
+    radial-gradient(ellipse 58% 30% at 50% 102%, rgba(192, 57, 47, 0.055) 0%, transparent 74%),
+    radial-gradient(ellipse 62% 34% at 50% -6%, var(--bg-glow) 0%, transparent 72%),
     var(--bg);
   background-attachment: fixed;
   color: var(--ink);
@@ -38,10 +38,11 @@ body {
   opacity: 0;
   transition: opacity 1.4s ease;
   background: radial-gradient(
-    ellipse 68% 62% at var(--star-x, 92%) var(--star-y, 6%),
-    rgba(255, 217, 141, 0.15) 0%,
-    rgba(255, 214, 130, 0.055) 34%,
-    transparent 70%
+    ellipse 76% 70% at var(--star-x, 92%) var(--star-y, 6%),
+    rgba(255, 221, 152, 0.30) 0%,
+    rgba(255, 210, 125, 0.13) 30%,
+    rgba(255, 200, 110, 0.04) 52%,
+    transparent 74%
   );
 }
 
