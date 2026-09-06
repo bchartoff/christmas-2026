@@ -214,9 +214,49 @@ function addSymbol(defs, id, d) {
     .attr("d", d);
 }
 
-function carolerHref(d) {
-  const state = selected.has(d.letter) ? "open" : "closed";
-  return `#caroler-${partIndex(d.midi)}-${state}`;
+// Both states are always present, stacked. The open one is faded in and out
+// per note rather than swapped, which is what lets the mouth animate at all --
+// switching the reference would only ever snap between two frames.
+const MOUTH_ATTACK = 0.05;
+const MOUTH_DECAY = 0.14;
+
+const singing = new Map();
+let openLayer = d3.selectAll(null);
+let raf = null;
+
+function openness(list, t) {
+  let best = 0;
+  list.forEach((n) => {
+    if (t < n.start || t > n.end + MOUTH_DECAY) return;
+    let v;
+    if (t < n.start + MOUTH_ATTACK) v = (t - n.start) / MOUTH_ATTACK;
+    else if (t <= n.end) v = 1;
+    else v = 1 - (t - n.end) / MOUTH_DECAY;
+    if (v > best) best = v;
+  });
+  return best;
+}
+
+function animateMouths() {
+  const t = audioTime();
+  openLayer.attr("opacity", (d) => {
+    const list = singing.get(d.letter);
+    if (!list) return 0;
+    while (list.length && list[0].end + MOUTH_DECAY < t) list.shift();
+    return openness(list, t);
+  });
+  raf = requestAnimationFrame(animateMouths);
+}
+
+function startMouths() {
+  if (raf === null) raf = requestAnimationFrame(animateMouths);
+}
+
+function stopMouths() {
+  if (raf !== null) cancelAnimationFrame(raf);
+  raf = null;
+  singing.clear();
+  openLayer.attr("opacity", 0);
 }
 
 function buildChoir() {
@@ -245,12 +285,19 @@ function buildChoir() {
     .attr("width", COL_W)
     .attr("height", ROW_H);
 
-  bars
+  const figure = bars.append("g").attr("class", "figure");
+  figure
     .append("use")
-    .attr("class", "caroler")
-    .attr("href", carolerHref)
+    .attr("href", (d) => `#caroler-${partIndex(d.midi)}-closed`)
     .attr("width", FIGURE)
     .attr("height", FIGURE);
+  openLayer = figure
+    .append("use")
+    .attr("class", "caroler-open")
+    .attr("href", (d) => `#caroler-${partIndex(d.midi)}-open`)
+    .attr("width", FIGURE)
+    .attr("height", FIGURE)
+    .attr("opacity", 0);
 
   bars
     .append("text")
@@ -273,9 +320,12 @@ function toggle(d) {
   if (selected.has(d.letter)) {
     selected.delete(d.letter);
     releaseLetter(d.letter);
+    singing.delete(d.letter);
+    if (selected.size === 0) stopMouths();
   } else {
     selected.add(d.letter);
     holdLetter(d.letter, d.midi);
+    startMouths();
   }
   render();
 }
@@ -288,7 +338,6 @@ function matchedNames() {
 
 function render() {
   bars.classed("is-on", (d) => selected.has(d.letter));
-  bars.select("use.caroler").attr("href", carolerHref);
 
   const found = matchedNames();
 
@@ -315,7 +364,20 @@ function render() {
 d3.select("#clear").on("click", () => {
   selected.clear();
   releaseAllLetters();
+  stopMouths();
   render();
+});
+
+// The mouth shuts partway through each note rather than staying open for its
+// full length. The voices sing almost continuously, so holding it open for the
+// whole note reads as one gaping mouth instead of a figure articulating.
+setNoteListener((letter, at, dur) => {
+  let list = singing.get(letter);
+  if (!list) {
+    list = [];
+    singing.set(letter, list);
+  }
+  list.push({ start: at, end: at + Math.max(0.12, dur * 0.55) });
 });
 
 loadCarolers().then(() => {

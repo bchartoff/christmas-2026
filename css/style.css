@@ -49,12 +49,12 @@ h1 {
 
 .bar-hit { fill: transparent; }
 
-.caroler {
+.figure {
   fill: var(--bar-edge);
   transition: fill 0.25s ease;
 }
 
-.bar:hover .caroler { fill: #5d8b87; }
+.bar:hover .figure { fill: #5d8b87; }
 
 .bar:focus-visible .bar-hit {
   fill: rgba(232, 192, 122, 0.09);
@@ -62,7 +62,7 @@ h1 {
   stroke-width: 2;
 }
 
-.bar.is-on .caroler {
+.bar.is-on .figure {
   fill: var(--gold);
   animation: breathe 3.4s ease-in-out infinite;
 }
@@ -73,7 +73,7 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bar.is-on .caroler {
+  .bar.is-on .figure {
     animation: none;
     filter: drop-shadow(0 0 10px rgba(232, 192, 122, 0.5));
   }

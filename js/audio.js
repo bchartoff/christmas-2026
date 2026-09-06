@@ -81,8 +81,19 @@ let choir = null;
 let timer = null;
 let nextTime = 0;
 let step = 0;
+let noteListener = null;
 const held = new Map();
 const waves = new Map();
+
+// The scheduler already knows when every voice sings; the visuals just listen
+// in rather than trying to reconstruct the rhythm on their own.
+function setNoteListener(fn) {
+  noteListener = fn;
+}
+
+function audioTime() {
+  return ctx ? ctx.currentTime : 0;
+}
 
 function midiToHz(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
@@ -220,7 +231,7 @@ function scheduleStep(s, at) {
   const cycle = Math.floor(s / GROUND.length);
   const local = s % GROUND.length;
 
-  held.forEach((v) => {
+  held.forEach((v, letter) => {
     if (v.cycle !== cycle) {
       v.cycle = cycle;
       v.notes = notesForCycle(v, cycle);
@@ -229,12 +240,10 @@ function scheduleStep(s, at) {
       const u = (nt.u + v.entry) % CYCLE_UNITS;
       if (Math.floor(u / UNITS_PER_STEP) !== local) return;
       const absUnit = cycle * CYCLE_UNITS + u;
-      singOo(
-        pitchAt(v.midi, absUnit, nt.off, nt.len),
-        at + (u - local * UNITS_PER_STEP) * unit,
-        nt.len * unit * 0.96,
-        v.part
-      );
+      const when = at + (u - local * UNITS_PER_STEP) * unit;
+      const dur = nt.len * unit * 0.96;
+      singOo(pitchAt(v.midi, absUnit, nt.off, nt.len), when, dur, v.part);
+      if (noteListener) noteListener(letter, when, dur);
     });
   });
 }
