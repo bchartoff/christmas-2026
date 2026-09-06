@@ -1,63 +1,116 @@
-const BAR_W = 46;
-const BAR_GAP = 10;
-const VB_W = LETTER_NOTES.length * (BAR_W + BAR_GAP) + BAR_GAP;
-const VB_H = 300;
+// One caroler per voice part, lowest first, matching the order of PARTS.
+const CAROLERS = [
+  "img/caroler-bass.svg",
+  "img/caroler-tenor.svg",
+  "img/caroler-alto.svg",
+  "img/caroler-soprano.svg",
+];
+
+const FIGURE = 100;
+const COL_W = 122;
+const ROW_H = 152;
+
+// Fewer carolers per row on a narrow screen. Squeezing all eighteen across
+// shrinks each figure until neither it nor its note label can be read.
+function perRow() {
+  const w = window.innerWidth;
+  if (w < 480) return 4;
+  if (w < 760) return 6;
+  return 9;
+}
 
 const selected = new Set();
-
-const barLength = d3
-  .scaleLinear()
-  .domain(d3.extent(LETTER_NOTES, (d) => d.midi))
-  .range([230, 120]);
+let bars = d3.selectAll(null);
 
 const svg = d3
   .select("#keyboard")
   .append("svg")
-  .attr("viewBox", `0 0 ${VB_W} ${VB_H}`)
   .attr("role", "group");
 
-const bars = svg
-  .selectAll("g.bar")
-  .data(LETTER_NOTES)
-  .join("g")
-  .attr("class", "bar")
-  .attr("transform", (d, i) => `translate(${BAR_GAP + i * (BAR_W + BAR_GAP)},0)`)
-  .attr("tabindex", 0)
-  .attr("role", "button")
-  .attr("aria-label", (d) => `${d.letter}, ${d.note}`)
-  .on("click", (event, d) => toggle(d))
-  .on("keydown", (event, d) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      toggle(d);
-    }
+function layout() {
+  const cols = perRow();
+  const rows = Math.ceil(LETTER_NOTES.length / cols);
+  svg.attr("viewBox", `0 0 ${cols * COL_W} ${rows * ROW_H}`);
+  bars.attr("transform", (d, i) => {
+    const x = (i % cols) * COL_W + (COL_W - FIGURE) / 2;
+    const y = Math.floor(i / cols) * ROW_H;
+    return `translate(${x},${y})`;
   });
+}
 
-bars
-  .append("rect")
-  .attr("class", "bar-body")
-  .attr("x", 0)
-  .attr("y", (d) => (VB_H - barLength(d.midi)) / 2)
-  .attr("width", BAR_W)
-  .attr("height", (d) => barLength(d.midi))
-  .attr("rx", 8);
+function partIndex(midi) {
+  return PARTS.indexOf(partFor(midi));
+}
 
-bars
-  .append("text")
-  .attr("class", "bar-letter")
-  .attr("x", BAR_W / 2)
-  .attr("y", VB_H / 2)
-  .attr("text-anchor", "middle")
-  .attr("dominant-baseline", "central")
-  .text((d) => d.letter);
+// Inline each file as a <symbol> so the artwork stays a single source of truth
+// on disk while still inheriting fill from the page. The paths carry no fill
+// attribute of their own, so CSS colours them without the files being touched.
+function loadCarolers() {
+  return Promise.all(
+    CAROLERS.map((url) => fetch(url).then((r) => r.text()))
+  ).then((docs) => {
+    const defs = svg.append("defs");
+    docs.forEach((text, i) => {
+      const parsed = new DOMParser().parseFromString(text, "image/svg+xml");
+      const path = parsed.querySelector("path");
+      const symbol = defs
+        .append("symbol")
+        .attr("id", `caroler-${i}`)
+        .attr("viewBox", "0 0 1200 1200");
+      symbol.node().appendChild(document.importNode(path, true));
+    });
+  });
+}
 
-bars
-  .append("text")
-  .attr("class", "bar-note")
-  .attr("x", BAR_W / 2)
-  .attr("y", (d) => (VB_H + barLength(d.midi)) / 2 - 16)
-  .attr("text-anchor", "middle")
-  .text((d) => d.note);
+function buildChoir() {
+  bars = svg
+    .selectAll("g.bar")
+    .data(LETTER_NOTES)
+    .join("g")
+    .attr("class", "bar")
+    .attr("tabindex", 0)
+    .attr("role", "button")
+    .attr("aria-label", (d) => `${d.letter}, ${d.note}`)
+    .on("click", (event, d) => toggle(d))
+    .on("keydown", (event, d) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle(d);
+      }
+    });
+
+  // A transparent box so the whole cell is clickable, not just inked pixels.
+  bars
+    .append("rect")
+    .attr("class", "bar-hit")
+    .attr("x", -(COL_W - FIGURE) / 2)
+    .attr("y", 0)
+    .attr("width", COL_W)
+    .attr("height", ROW_H);
+
+  bars
+    .append("use")
+    .attr("class", "caroler")
+    .attr("href", (d) => `#caroler-${partIndex(d.midi)}`)
+    .attr("width", FIGURE)
+    .attr("height", FIGURE);
+
+  bars
+    .append("text")
+    .attr("class", "bar-letter")
+    .attr("x", FIGURE / 2)
+    .attr("y", FIGURE + 26)
+    .attr("text-anchor", "middle")
+    .text((d) => d.letter);
+
+  bars
+    .append("text")
+    .attr("class", "bar-note")
+    .attr("x", FIGURE / 2)
+    .attr("y", FIGURE + 44)
+    .attr("text-anchor", "middle")
+    .text((d) => d.note);
+}
 
 function toggle(d) {
   if (selected.has(d.letter)) {
@@ -107,4 +160,14 @@ d3.select("#clear").on("click", () => {
   render();
 });
 
-render();
+loadCarolers().then(() => {
+  buildChoir();
+  layout();
+  render();
+});
+
+let relayout;
+window.addEventListener("resize", () => {
+  clearTimeout(relayout);
+  relayout = setTimeout(layout, 120);
+});
