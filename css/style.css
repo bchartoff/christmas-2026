@@ -43,31 +43,6 @@ h1 {
   font-style: italic;
 }
 
-#canon {
-  margin-top: 1.4rem;
-  background: none;
-  border: 1px solid #2f5250;
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 0.45rem 1.3rem;
-  font: inherit;
-  font-size: 0.85rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease;
-}
-
-#canon .glyph { font-size: 0.75em; margin-right: 0.3em; }
-
-#canon:hover { border-color: var(--gold); color: var(--gold); }
-
-#canon.is-on {
-  border-color: var(--gold);
-  color: var(--gold-bright);
-  box-shadow: 0 0 18px rgba(232, 192, 122, 0.22);
-}
-
 #keyboard svg { width: 100%; height: auto; overflow: visible; }
 
 .bar { cursor: pointer; outline: none; }

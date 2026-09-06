@@ -62,10 +62,10 @@ bars
 function toggle(d) {
   if (selected.has(d.letter)) {
     selected.delete(d.letter);
-    voiceOff(d.letter);
+    releaseLetter(d.letter);
   } else {
     selected.add(d.letter);
-    voiceOn(d.letter, d.midi);
+    holdLetter(d.letter, d.midi);
   }
   render();
 }
@@ -101,24 +101,9 @@ function render() {
     );
 }
 
-const canonBtn = d3.select("#canon");
-canonBtn.on("click", () => {
-  if (bassIsPlaying()) {
-    bassStop();
-  } else {
-    bassStart();
-  }
-  const on = bassIsPlaying();
-  canonBtn
-    .attr("aria-pressed", on)
-    .classed("is-on", on)
-    .select(".glyph")
-    .html(on ? "&#9632;" : "&#9654;");
-});
-
 d3.select("#clear").on("click", () => {
   selected.clear();
-  allVoicesOff();
+  releaseAllLetters();
   render();
 });
 
