@@ -8,7 +8,8 @@ const CAROLERS = [
 
 const FIGURE = 100;
 const COL_W = 122;
-const ROW_H = 152;
+const LABEL_H = 34;
+const ROW_H = LABEL_H + FIGURE + 14;
 
 // Fewer carolers per row on a narrow screen. Squeezing all eighteen across
 // shrinks each figure until neither it nor its note label can be read.
@@ -301,7 +302,18 @@ function buildChoir() {
     .attr("width", COL_W)
     .attr("height", ROW_H);
 
-  const figure = bars.append("g").attr("class", "figure");
+  bars
+    .append("text")
+    .attr("class", "bar-letter")
+    .attr("x", FIGURE / 2)
+    .attr("y", LABEL_H - 12)
+    .attr("text-anchor", "middle")
+    .text((d) => d.letter);
+
+  const figure = bars
+    .append("g")
+    .attr("class", "figure")
+    .attr("transform", `translate(0,${LABEL_H})`);
   figure
     .append("use")
     .attr("href", (d) => {
@@ -321,21 +333,6 @@ function buildChoir() {
     .attr("height", FIGURE)
     .attr("opacity", (d) => layerOpacity(d, 0));
 
-  bars
-    .append("text")
-    .attr("class", "bar-letter")
-    .attr("x", FIGURE / 2)
-    .attr("y", FIGURE + 26)
-    .attr("text-anchor", "middle")
-    .text((d) => d.letter);
-
-  bars
-    .append("text")
-    .attr("class", "bar-note")
-    .attr("x", FIGURE / 2)
-    .attr("y", FIGURE + 44)
-    .attr("text-anchor", "middle")
-    .text((d) => d.note);
 }
 
 function toggle(d) {

@@ -80,23 +80,17 @@ h1 {
 }
 
 .bar-letter {
-  fill: var(--ink);
-  font-size: 21px;
+  fill: var(--muted);
+  font-size: 22px;
   font-weight: 600;
+  letter-spacing: 0.04em;
   pointer-events: none;
   transition: fill 0.25s ease;
 }
 
+.bar:hover .bar-letter { fill: var(--ink); }
+
 .bar.is-on .bar-letter { fill: var(--gold-bright); }
-
-.bar-note {
-  fill: var(--muted);
-  font-size: 13px;
-  letter-spacing: 0.05em;
-  pointer-events: none;
-}
-
-.bar.is-on .bar-note { fill: var(--gold); }
 
 #results {
   margin-top: 3rem;
