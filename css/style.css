@@ -161,6 +161,30 @@ main {
 
 #clear:hover { border-color: var(--holly); color: var(--holly); }
 
+/* Set in the fallback serif rather than Cinzel: Roman capitals are hard to
+   read at this size, and the credit should recede. */
+footer {
+  max-width: 42rem;
+  margin: 4rem auto 0;
+  text-align: center;
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 0.68rem;
+  line-height: 1.85;
+  letter-spacing: 0.02em;
+  color: #47654f;
+}
+
+footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  transition: color 0.18s ease;
+}
+
+footer a:hover { color: var(--gold); }
+
 @media (max-width: 640px) {
   main { padding: 2rem 1rem 3rem; }
+  footer { margin-top: 2.5rem; }
 }
