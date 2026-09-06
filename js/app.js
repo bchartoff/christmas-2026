@@ -435,9 +435,27 @@ function render() {
 d3.select("#clear").on("click", () => {
   selected.clear();
   releaseAllLetters();
+  stopGround();
   stopMouths();
   render();
+  armGround();
 });
+
+// Autoplay rules forbid sound before the visitor has done something, so the
+// ground cannot simply begin on load. It starts on their first gesture --
+// any gesture, not only a click on a caroler -- and Clear silences it again.
+function beginGround() {
+  window.removeEventListener("pointerdown", beginGround);
+  window.removeEventListener("keydown", beginGround);
+  startGround();
+}
+
+function armGround() {
+  window.addEventListener("pointerdown", beginGround);
+  window.addEventListener("keydown", beginGround);
+}
+
+armGround();
 
 // The mouth shuts partway through each note rather than staying open for its
 // full length. The voices sing almost continuously, so holding it open for the

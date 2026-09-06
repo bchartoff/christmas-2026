@@ -133,6 +133,7 @@ let dry = null;
 let wet = null;
 let breath = null;
 let ground = null;
+let groundOn = false;
 let timer = null;
 let nextTime = 0;
 let step = 0;
@@ -444,6 +445,19 @@ function engineRunning() {
   return timer !== null;
 }
 
+// The ground can keep going with nobody held, so the piece is already under
+// way before the first caroler is lit.
+function startGround() {
+  ensureCtx();
+  groundOn = true;
+  startEngine();
+}
+
+function stopGround() {
+  groundOn = false;
+  if (held.size === 0) stopEngine();
+}
+
 function holdLetter(letter, midi) {
   ensureCtx();
   const part = partFor(midi);
@@ -476,19 +490,20 @@ function releaseLetter(letter) {
   // Let whatever is still sounding ring out through the room before the
   // channel is torn down.
   if (v) setTimeout(() => v.channel.disconnect(), 5000);
-  if (held.size === 0) stopEngine();
+  if (held.size === 0 && !groundOn) stopEngine();
 }
 
 function releaseAllLetters() {
   held.forEach((v) => setTimeout(() => v.channel.disconnect(), 5000));
   held.clear();
-  stopEngine();
+  if (!groundOn) stopEngine();
 }
 
 // Cut everything dead with no release ramp. pagehide covers refresh, navigation
 // and tab close, including the bfcache path where unload never fires.
 function killAudio() {
   stopEngine();
+  groundOn = false;
   held.clear();
   if (ctx && ctx.state !== "closed") ctx.close();
 }
