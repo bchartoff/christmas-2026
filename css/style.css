@@ -15,16 +15,41 @@
 
 body {
   margin: 0;
+  /* Ambient only: a warm rise from the floor and a faint cool lift behind the
+     choir. The bright light comes from the star, and only once it is there. */
   background:
-    radial-gradient(ellipse 70% 45% at 50% 104%, rgba(192, 57, 47, 0.13) 0%, transparent 70%),
-    radial-gradient(ellipse at 50% -10%, var(--bg-glow) 0%, var(--bg) 58%);
+    radial-gradient(ellipse 70% 42% at 50% 104%, rgba(192, 57, 47, 0.10) 0%, transparent 72%),
+    radial-gradient(ellipse 85% 58% at 50% 34%, var(--bg-glow) 0%, transparent 72%),
+    var(--bg);
   background-attachment: fixed;
   color: var(--ink);
   font-family: Cinzel, "Iowan Old Style", Palatino, Georgia, serif;
   min-height: 100vh;
 }
 
+/* Light cast by the star, centred on wherever it actually sits. It fades up
+   with the star rather than being painted on the body, so the scene is only
+   lit while a name is showing. */
+#glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+  background: radial-gradient(
+    ellipse 68% 62% at var(--star-x, 92%) var(--star-y, 6%),
+    rgba(255, 217, 141, 0.15) 0%,
+    rgba(255, 214, 130, 0.055) 34%,
+    transparent 70%
+  );
+}
+
+#glow.is-lit { opacity: 1; }
+
 main {
+  position: relative;
+  z-index: 1;
   max-width: 1100px;
   margin: 0 auto;
   padding: 3rem 1.5rem 5rem;

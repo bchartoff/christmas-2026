@@ -42,7 +42,20 @@ const svg = d3
   .append("svg")
   .attr("role", "group");
 
+// The glow is anchored to the star's real position, so it stays put as the
+// star's clamped offsets change with the viewport.
+function positionGlow() {
+  const star = document.getElementById("star");
+  const glow = document.getElementById("glow");
+  if (!star || !glow) return;
+  const r = star.getBoundingClientRect();
+  if (!r.width) return;
+  glow.style.setProperty("--star-x", `${((r.left + r.width / 2) / window.innerWidth) * 100}%`);
+  glow.style.setProperty("--star-y", `${((r.top + r.height / 2) / window.innerHeight) * 100}%`);
+}
+
 function layout() {
+  positionGlow();
   const cols = perRow();
   const rows = Math.ceil(LETTER_NOTES.length / cols);
   svg.attr("viewBox", `0 0 ${cols * COL_W} ${rows * ROW_H}`);
@@ -398,7 +411,10 @@ function render() {
   bars.classed("is-on", (d) => selected.has(d.letter));
 
   const found = matchedNames();
-  d3.select("#star").classed("is-lit", found.length > 0);
+  const lit = found.length > 0;
+  if (lit) positionGlow();
+  d3.select("#star").classed("is-lit", lit);
+  d3.select("#glow").classed("is-lit", lit);
 
   d3.select("#names")
     .selectAll("span.name")
