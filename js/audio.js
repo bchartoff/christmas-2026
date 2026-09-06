@@ -116,13 +116,13 @@ const PARTS = [
   {
     top: 71,
     vowel: [[370, 70, 1.0], [950, 100, 0.25], [2670, 200, 0.03], [3060, 240, 0.012]],
-    vars: [9, 10, 11, 12, 13],
+    vars: [9, 10, 17, 12, 16],
     pan: 0.18,
   },
   {
     top: 128,
     vowel: [[370, 70, 1.0], [950, 100, 0.3], [2670, 200, 0.04], [3060, 240, 0.015]],
-    vars: [14, 15, 16, 17],
+    vars: [14, 15, 13, 11],
     pan: 0.5,
   },
 ];
@@ -182,8 +182,12 @@ function partFor(midi) {
 
 // Deal each part's figures round-robin down its letters rather than hashing
 // them. A hash clumps: it put three of the six low voices on one figure while
-// leaving others unused, and the opening theme on a single letter. Pools run
-// slowest to busiest, so the highest voice of a part gets the busiest figure.
+// leaving others unused, and the opening theme on a single letter.
+//
+// Pools mostly run slowest to busiest down the part, but the two busiest
+// figures are placed on I and L rather than on the top two sopranos. Those
+// letters appear in six names each where O and Y appear in four and one, so
+// the liveliest writing is heard far more often.
 const FIGURE_OF = (() => {
   const seen = new Map();
   const out = new Map();
