@@ -24,9 +24,8 @@ const FIGURE = 100;
 const COL_W = 122;
 const LABEL_H = 34;
 const ROW_H = LABEL_H + FIGURE + 14;
-const SECTION_NAMES = ["Bass", "Tenor", "Alto", "Soprano"];
 const SECTION_GAP = 0.55; // in columns
-const BAND = 34;          // room above a row for its section names
+const BAND = 16;          // breathing room between rows of sections
 
 // Fewer carolers per row on a narrow screen. Squeezing all eighteen across
 // shrinks each figure until neither it nor its note label can be read.
@@ -85,12 +84,10 @@ function packRows(cols) {
     // section never trails one stray figure onto the end of another's row.
     if (used > 0 && used + sec.idx.length > cols) flush();
     let rest = sec.idx;
-    let first = true;
     while (rest.length) {
       if (used >= cols) flush();
       const take = Math.min(rest.length, cols - used);
-      cur.push({ part: sec.part, idx: rest.slice(0, take), labelled: first });
-      first = false;
+      cur.push({ part: sec.part, idx: rest.slice(0, take) });
       rest = rest.slice(take);
       used += take;
     }
@@ -107,15 +104,11 @@ function layout() {
     row.reduce((a, g) => a + g.idx.length, 0) + SECTION_GAP * (row.length - 1);
   const widest = Math.max(...rows.map(widthOf));
   const place = new Array(LETTER_NOTES.length);
-  const labels = [];
 
   rows.forEach((row, r) => {
     let col = (widest - widthOf(row)) / 2;
     const top = r * (ROW_H + BAND) + BAND;
     row.forEach((g) => {
-      if (g.labelled) {
-        labels.push({ part: g.part, x: (col + g.idx.length / 2) * COL_W, y: top - 13 });
-      }
       g.idx.forEach((letterIndex, k) => {
         place[letterIndex] = { x: (col + k) * COL_W + (COL_W - FIGURE) / 2, y: top };
       });
@@ -125,16 +118,6 @@ function layout() {
 
   svg.attr("viewBox", `0 0 ${widest * COL_W} ${rows.length * (ROW_H + BAND)}`);
   bars.attr("transform", (d, i) => `translate(${place[i].x},${place[i].y})`);
-
-  svg
-    .selectAll("text.section")
-    .data(labels)
-    .join("text")
-    .attr("class", "section")
-    .attr("x", (l) => l.x)
-    .attr("y", (l) => l.y)
-    .attr("text-anchor", "middle")
-    .text((l) => SECTION_NAMES[l.part]);
 }
 
 function partIndex(midi) {
@@ -513,17 +496,16 @@ d3.select("#clear").on("click", () => {
 });
 
 // Autoplay rules forbid sound before the visitor has done something, so the
-// ground cannot simply begin on load. It starts on their first gesture --
-// any gesture, not only a click on a caroler -- and Clear silences it again.
+// ground cannot simply begin on load. It starts on their first click -- not on
+// a keypress, which would surprise anyone tabbing through the page -- and
+// Clear silences it again.
 function beginGround() {
   window.removeEventListener("pointerdown", beginGround);
-  window.removeEventListener("keydown", beginGround);
   startGround();
 }
 
 function armGround() {
   window.addEventListener("pointerdown", beginGround);
-  window.addEventListener("keydown", beginGround);
 }
 
 armGround();

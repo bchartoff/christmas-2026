@@ -255,10 +255,14 @@ function ensureCtx() {
   if (!ctx) {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
 
+    // Gentle, and mostly a safety net. The old settings were reducing hard
+    // enough on a full choir to distort, which is what the rasp was.
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -12;
-    comp.ratio.value = 3.5;
-    comp.knee.value = 22;
+    comp.threshold.value = -8;
+    comp.ratio.value = 2.5;
+    comp.knee.value = 26;
+    comp.attack.value = 0.02;
+    comp.release.value = 0.35;
 
     // Damping the top makes the room read as stone rather than glass, and
     // takes the edge off the upper formants at the same time.
@@ -322,7 +326,7 @@ function singOo(midi, at, dur, v) {
   wobble.type = "peaking";
   wobble.frequency.value = part.vowel[1][0];
   wobble.Q.value = 1.6;
-  wobble.gain.value = 4.5;
+  wobble.gain.value = 3;
   wobble.connect(out);
 
   const wLfo = ctx.createOscillator();
@@ -345,6 +349,19 @@ function singOo(midi, at, dur, v) {
   // Two voices per part rather than one. A single oscillator is a soloist;
   // the small pitch disagreement between two is most of what says "several
   // people are singing this line".
+  // Shimmer: a slow unevenness in loudness. Along with the drift below it is
+  // most of what separates a person from an oscillator holding a note.
+  const body = ctx.createGain();
+  body.gain.value = 1;
+  body.connect(wobble);
+  const shim = ctx.createOscillator();
+  const shimDepth = ctx.createGain();
+  shim.frequency.value = 0.5 + Math.random() * 0.7;
+  shimDepth.gain.value = 0.07;
+  shim.connect(shimDepth).connect(body.gain);
+  shim.start(at);
+  shim.stop(end + rel + 0.05);
+
   const wave = vowelWave(midi, part);
   [-6, 6].forEach((cents) => {
     const osc = ctx.createOscillator();
@@ -352,7 +369,18 @@ function singOo(midi, at, dur, v) {
     osc.frequency.value = midiToHz(midi);
     osc.detune.value = cents + (Math.random() * 5 - 2.5);
     vibGain.connect(osc.detune);
-    osc.connect(wobble);
+
+    // Each singer wanders on their own. Sharing one vibrato made the pair beat
+    // at a fixed rate, which reads as a chorus effect rather than two people.
+    const drift = ctx.createOscillator();
+    const driftDepth = ctx.createGain();
+    drift.frequency.value = 0.25 + Math.random() * 0.45;
+    driftDepth.gain.value = 3 + Math.random() * 4;
+    drift.connect(driftDepth).connect(osc.detune);
+    drift.start(at);
+    drift.stop(end + rel + 0.05);
+
+    osc.connect(body);
     osc.start(at);
     osc.stop(end + rel + 0.05);
   });
@@ -361,12 +389,15 @@ function singOo(midi, at, dur, v) {
   const air = ctx.createBufferSource();
   air.buffer = breath;
   air.loop = true;
+  // Lowpassed, not bandpassed. A broad band around the second formant puts
+  // noise straight into the 1-3kHz region the ear is harshest in, and with
+  // twenty notes overlapping it accumulated into audible hiss.
   const airFilter = ctx.createBiquadFilter();
-  airFilter.type = "bandpass";
-  airFilter.frequency.value = part.vowel[1][0] * 1.4;
-  airFilter.Q.value = 0.7;
+  airFilter.type = "lowpass";
+  airFilter.frequency.value = 900;
+  airFilter.Q.value = 0.5;
   const airGain = ctx.createGain();
-  airGain.gain.value = 0.05;
+  airGain.gain.value = 0.022;
   air.connect(airFilter).connect(airGain).connect(out);
   air.start(at);
   air.stop(end + rel + 0.05);
@@ -451,15 +482,26 @@ function engineRunning() {
 
 // The ground can keep going with nobody held, so the piece is already under
 // way before the first caroler is lit.
+// Eighteen voices summing at the level of one will overload whatever follows,
+// however gentle the compressor is. Hold the total roughly constant instead,
+// so a full choir is as loud as a single singer rather than eighteen times so.
+function balance() {
+  if (!choir) return;
+  const voices = held.size + (groundOn ? 1 : 0);
+  choir.gain.setTargetAtTime(0.75 / Math.sqrt(Math.max(1, voices)), ctx.currentTime, 0.3);
+}
+
 function startGround() {
   ensureCtx();
   groundOn = true;
   startEngine();
+  balance();
 }
 
 function stopGround() {
   groundOn = false;
   if (held.size === 0) stopEngine();
+  balance();
 }
 
 function holdLetter(letter, midi) {
@@ -486,6 +528,7 @@ function holdLetter(letter, midi) {
     notes: [],
   });
   startEngine();
+  balance();
 }
 
 function releaseLetter(letter) {
@@ -495,12 +538,14 @@ function releaseLetter(letter) {
   // channel is torn down.
   if (v) setTimeout(() => v.channel.disconnect(), 5000);
   if (held.size === 0 && !groundOn) stopEngine();
+  balance();
 }
 
 function releaseAllLetters() {
   held.forEach((v) => setTimeout(() => v.channel.disconnect(), 5000));
   held.clear();
   if (!groundOn) stopEngine();
+  balance();
 }
 
 // Cut everything dead with no release ramp. pagehide covers refresh, navigation
