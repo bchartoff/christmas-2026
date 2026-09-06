@@ -1,14 +1,14 @@
 :root {
-  --bg: #050f0a;
-  --bg-glow: #0d2617;
+  --bg: #05070f;
+  --bg-glow: #131d33;
   --ink: #f5ecd8;
-  --muted: #85a892;
-  --pine: #39734f;
-  --pine-lit: #52a06f;
+  --muted: #7d879b;
+  --stone: #4d5666;
+  --stone-lit: #707c90;
   --gold: #e6b45a;
   --gold-bright: #ffd98d;
   --holly: #c0392f;
-  --edge: #2a4a37;
+  --edge: #2a3242;
 }
 
 * { box-sizing: border-box; }
@@ -94,16 +94,16 @@ main {
 .bar-hit { fill: transparent; }
 
 .figure {
-  fill: var(--pine);
+  fill: var(--stone);
   transition: fill 0.25s ease;
 }
 
-.bar:hover .figure { fill: var(--pine-lit); }
+.bar:hover .figure { fill: var(--stone-lit); }
 
 /* No focus box. A keyboard user still sees where they are: the figure lifts
    to its hover colour and the letter above it appears, which is a clearer
    indicator here than a rectangle drawn round a caroler. */
-.bar:focus-visible .figure { fill: var(--pine-lit); }
+.bar:focus-visible .figure { fill: var(--stone-lit); }
 
 .bar.is-on .figure {
   fill: var(--lit);
@@ -172,7 +172,7 @@ footer {
   font-size: 0.68rem;
   line-height: 1.85;
   letter-spacing: 0.02em;
-  color: #47654f;
+  color: #4a5364;
 }
 
 footer a {

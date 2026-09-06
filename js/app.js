@@ -13,6 +13,7 @@ const CAROLERS = [
 const BULBS = [
   { lit: "#e8b95c", glow: "232, 185, 92" },   // amber
   { lit: "#d4645c", glow: "212, 100, 92" },   // cranberry
+  { lit: "#63bd7f", glow: "99, 189, 127" },   // pine green
   { lit: "#7fb3d5", glow: "127, 179, 213" },  // frost blue
   { lit: "#c98bb8", glow: "201, 139, 184" },  // plum
   { lit: "#e0925a", glow: "224, 146, 90" },   // copper
