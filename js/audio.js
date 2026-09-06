@@ -67,17 +67,40 @@ const VARIATIONS = [
   },
 ];
 
-// [formant hz, bandwidth, gain] for an "oo", plus which variations suit the
-// part -- lower voices get the longer note values, as they do in the score.
+// Sung-vowel formants for /u/, which sit lower and tighter than the spoken
+// tables most formant charts give. [hz, bandwidth, gain]
 const PARTS = [
-  { top: 55, vowel: [[300, 80, 1.0], [740, 110, 0.16], [2300, 220, 0.012]], vars: [0, 4, 6] },
-  { top: 63, vowel: [[320, 85, 1.0], [800, 110, 0.19], [2400, 220, 0.015]], vars: [0, 1, 5] },
-  { top: 71, vowel: [[350, 90, 1.0], [860, 120, 0.22], [2500, 230, 0.018]], vars: [1, 2, 5] },
-  { top: 128, vowel: [[380, 95, 1.0], [920, 120, 0.25], [2600, 240, 0.022]], vars: [2, 3, 5] },
+  {
+    top: 55,
+    vowel: [[300, 60, 1.0], [870, 90, 0.16], [2240, 190, 0.02], [2600, 220, 0.008]],
+    vars: [0, 4, 6],
+    pan: -0.5,
+  },
+  {
+    top: 63,
+    vowel: [[300, 60, 1.0], [870, 90, 0.2], [2240, 190, 0.026], [2640, 220, 0.01]],
+    vars: [0, 1, 5],
+    pan: -0.18,
+  },
+  {
+    top: 71,
+    vowel: [[370, 70, 1.0], [950, 100, 0.25], [2670, 200, 0.03], [3060, 240, 0.012]],
+    vars: [1, 2, 5],
+    pan: 0.18,
+  },
+  {
+    top: 128,
+    vowel: [[370, 70, 1.0], [950, 100, 0.3], [2670, 200, 0.04], [3060, 240, 0.015]],
+    vars: [2, 3, 5],
+    pan: 0.5,
+  },
 ];
 
 let ctx = null;
 let choir = null;
+let dry = null;
+let wet = null;
+let breath = null;
 let timer = null;
 let nextTime = 0;
 let step = 0;
@@ -93,6 +116,20 @@ function setNoteListener(fn) {
 
 function audioTime() {
   return ctx ? ctx.currentTime : 0;
+}
+
+// A stone-room impulse: noise under an exponential decay, decorrelated between
+// channels so the tail spreads rather than sitting in the middle.
+function makeImpulse(seconds, decay) {
+  const len = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch += 1) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < len; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+  }
+  return buf;
 }
 
 function midiToHz(midi) {
@@ -164,47 +201,117 @@ function ensureCtx() {
   }
   if (!ctx) {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
+
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -10;
-    comp.ratio.value = 3;
-    comp.knee.value = 24;
+    comp.threshold.value = -12;
+    comp.ratio.value = 3.5;
+    comp.knee.value = 22;
+
+    // Damping the top makes the room read as stone rather than glass, and
+    // takes the edge off the upper formants at the same time.
+    const shelf = ctx.createBiquadFilter();
+    shelf.type = "highshelf";
+    shelf.frequency.value = 3200;
+    shelf.gain.value = -7;
+    shelf.connect(comp).connect(ctx.destination);
+
     choir = ctx.createGain();
-    choir.gain.value = 0.5;
-    choir.connect(comp).connect(ctx.destination);
+    choir.gain.value = 0.62;
+
+    // A choir is never heard in a small dry room, and a dry synthetic voice
+    // reads as synthetic however carefully its spectrum is modelled. The
+    // space does as much of the work here as the vowel does.
+    dry = ctx.createGain();
+    dry.gain.value = 0.5;
+    choir.connect(dry).connect(shelf);
+
+    const predelay = ctx.createDelay(0.2);
+    predelay.delayTime.value = 0.028;
+    const damp = ctx.createBiquadFilter();
+    damp.type = "lowpass";
+    damp.frequency.value = 2400;
+    const verb = ctx.createConvolver();
+    verb.buffer = makeImpulse(3.4, 2.4);
+    wet = ctx.createGain();
+    wet.gain.value = 0.55;
+    choir.connect(predelay).connect(damp).connect(verb).connect(wet).connect(shelf);
+
+    breath = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
+    const air = breath.getChannelData(0);
+    for (let i = 0; i < air.length; i += 1) air[i] = Math.random() * 2 - 1;
   }
   if (ctx.state === "suspended") ctx.resume();
 }
 
-function singOo(midi, at, dur, part) {
-  const att = Math.min(0.14, dur * 0.45);
-  const rel = Math.min(0.45, dur * 0.9);
+function singOo(midi, at, dur, v) {
+  const part = v.part;
+  const att = Math.min(0.3, dur * 0.5);
+  const rel = Math.min(0.7, dur * 1.1);
   const end = at + dur;
-  const peak = 0.2 + 0.08 * Math.min(1, dur / STEP_DUR);
+  const peak = 0.16 + 0.07 * Math.min(1, dur / STEP_DUR);
 
   const out = ctx.createGain();
   out.gain.setValueAtTime(0.0001, at);
   out.gain.linearRampToValueAtTime(peak, at + att);
-  out.gain.setValueAtTime(peak, Math.max(at + att + 0.01, end - rel * 0.4));
+  out.gain.setValueAtTime(peak, Math.max(at + att + 0.01, end - rel * 0.35));
   out.gain.exponentialRampToValueAtTime(0.0001, end + rel);
-  out.connect(choir);
+  out.connect(v.channel);
 
-  const osc = ctx.createOscillator();
-  osc.setPeriodicWave(vowelWave(midi, part));
-  osc.frequency.value = midiToHz(midi);
-  osc.detune.value = Math.random() * 7 - 3.5;
+  // A gently wandering resonance. The vowel is baked into the waveform, so
+  // nothing else here moves; without this the tone sits perfectly still,
+  // which is the tell that no throat is producing it.
+  const wobble = ctx.createBiquadFilter();
+  wobble.type = "peaking";
+  wobble.frequency.value = part.vowel[1][0];
+  wobble.Q.value = 1.6;
+  wobble.gain.value = 4.5;
+  wobble.connect(out);
+
+  const wLfo = ctx.createOscillator();
+  const wDepth = ctx.createGain();
+  wLfo.frequency.value = 0.7 + Math.random() * 0.9;
+  wDepth.gain.value = 55;
+  wLfo.connect(wDepth).connect(wobble.frequency);
+  wLfo.start(at);
+  wLfo.stop(end + rel + 0.05);
 
   const vib = ctx.createOscillator();
   const vibGain = ctx.createGain();
   vib.frequency.value = 4.6 + Math.random() * 0.8;
   vibGain.gain.setValueAtTime(0, at);
   vibGain.gain.linearRampToValueAtTime(6, at + Math.min(0.6, dur * 0.9));
-  vib.connect(vibGain).connect(osc.detune);
+  vib.connect(vibGain);
   vib.start(at);
   vib.stop(end + rel + 0.05);
 
-  osc.connect(out);
-  osc.start(at);
-  osc.stop(end + rel + 0.05);
+  // Two voices per part rather than one. A single oscillator is a soloist;
+  // the small pitch disagreement between two is most of what says "several
+  // people are singing this line".
+  const wave = vowelWave(midi, part);
+  [-6, 6].forEach((cents) => {
+    const osc = ctx.createOscillator();
+    osc.setPeriodicWave(wave);
+    osc.frequency.value = midiToHz(midi);
+    osc.detune.value = cents + (Math.random() * 5 - 2.5);
+    vibGain.connect(osc.detune);
+    osc.connect(wobble);
+    osc.start(at);
+    osc.stop(end + rel + 0.05);
+  });
+
+  // Breath. Inaudible on its own; its absence is what sounds airless.
+  const air = ctx.createBufferSource();
+  air.buffer = breath;
+  air.loop = true;
+  const airFilter = ctx.createBiquadFilter();
+  airFilter.type = "bandpass";
+  airFilter.frequency.value = part.vowel[1][0] * 1.4;
+  airFilter.Q.value = 0.7;
+  const airGain = ctx.createGain();
+  airGain.gain.value = 0.05;
+  air.connect(airFilter).connect(airGain).connect(out);
+  air.start(at);
+  air.stop(end + rel + 0.05);
 }
 
 // A voice re-reads its variation each time the ground comes round, moving on
@@ -242,7 +349,7 @@ function scheduleStep(s, at) {
       const absUnit = cycle * CYCLE_UNITS + u;
       const when = at + (u - local * UNITS_PER_STEP) * unit;
       const dur = nt.len * unit * 0.96;
-      singOo(pitchAt(v.midi, absUnit, nt.off, nt.len), when, dur, v.part);
+      singOo(pitchAt(v.midi, absUnit, nt.off, nt.len), when, dur, v);
       if (noteListener) noteListener(letter, when, dur);
     });
   });
@@ -280,9 +387,19 @@ function engineRunning() {
 function holdLetter(letter, midi) {
   ensureCtx();
   const part = partFor(midi);
+
+  // Each singer keeps one panned channel for as long as they are held, rather
+  // than every note building its own. Choirs stand in sections, and a line
+  // that wandered across the stage between notes would not read as one voice.
+  const channel = ctx.createGain();
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = part.pan + (((hashOf(letter) >>> 16) % 100) / 100 - 0.5) * 0.24;
+  channel.connect(panner).connect(choir);
+
   held.set(letter, {
     midi,
     part,
+    channel,
     offset: hashOf(letter) % part.vars.length,
     // Each voice starts its phrase somewhere else in the ground, so two letters
     // that drew the same variation sing it in canon rather than in unison.
@@ -296,11 +413,16 @@ function holdLetter(letter, midi) {
 }
 
 function releaseLetter(letter) {
+  const v = held.get(letter);
   held.delete(letter);
+  // Let whatever is still sounding ring out through the room before the
+  // channel is torn down.
+  if (v) setTimeout(() => v.channel.disconnect(), 5000);
   if (held.size === 0) stopEngine();
 }
 
 function releaseAllLetters() {
+  held.forEach((v) => setTimeout(() => v.channel.disconnect(), 5000));
   held.clear();
   stopEngine();
 }
