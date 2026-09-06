@@ -1,5 +1,7 @@
-// Pachelbel's ground bass: D A B F# G D G A. Nothing plays it -- it is the
-// silent harmonic skeleton the voices are singing over.
+// Pachelbel's ground bass: D A B F# G D G A, at the octaves the cello part
+// carries. A voice sings it whenever anyone is held -- it is the most
+// recognisable line in the piece, and leaving it merely implied by the
+// harmony was most of why the choir did not sound like the Canon.
 const GROUND = [50, 45, 47, 42, 43, 38, 43, 45];
 const STEP_DUR = 1.25;
 const LOOKAHEAD = 0.35;
@@ -130,6 +132,7 @@ let choir = null;
 let dry = null;
 let wet = null;
 let breath = null;
+let ground = null;
 let timer = null;
 let nextTime = 0;
 let step = 0;
@@ -281,6 +284,11 @@ function ensureCtx() {
     wet.gain.value = 0.55;
     choir.connect(predelay).connect(damp).connect(verb).connect(wet).connect(shelf);
 
+    const groundChannel = ctx.createGain();
+    groundChannel.gain.value = 1.15;
+    groundChannel.connect(choir);
+    ground = { part: PARTS[0], channel: groundChannel };
+
     breath = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
     const air = breath.getChannelData(0);
     for (let i = 0; i < air.length; i += 1) air[i] = Math.random() * 2 - 1;
@@ -388,13 +396,15 @@ function scheduleStep(s, at) {
   const cycle = Math.floor(s / GROUND.length);
   const local = s % GROUND.length;
 
+  singOo(GROUND[local], at, STEP_DUR * 0.98, ground);
+
   held.forEach((v, letter) => {
     if (v.cycle !== cycle) {
       v.cycle = cycle;
       v.notes = notesForCycle(v);
     }
     v.notes.forEach((nt) => {
-      const u = (nt.u + v.entry) % CYCLE_UNITS;
+      const u = nt.u;
       if (Math.floor(u / UNITS_PER_STEP) !== local) return;
       const absUnit = cycle * CYCLE_UNITS + u;
       const when = at + (u - local * UNITS_PER_STEP) * unit;
@@ -454,11 +464,6 @@ function holdLetter(letter, midi) {
     // caroler with no identity -- a voice would set up a run of sixteenths and
     // then abandon it a few bars later for something slower.
     variation: FIGURE_OF.get(letter),
-    // Each voice starts its phrase somewhere else in the ground, so two letters
-    // that drew the same variation sing it in canon rather than in unison.
-    // Offsetting by whole steps is not enough -- a rhythm already sitting on a
-    // regular subdivision stays locked to it -- so stagger on the finest grid.
-    entry: ((hashOf(letter) >>> 8) % 32) * 6,
     cycle: -1,
     notes: [],
   });
