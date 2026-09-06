@@ -1,22 +1,26 @@
 :root {
-  --bg: #0e1a1c;
-  --panel: #14262a;
-  --ink: #eef3f0;
-  --muted: #7f9a97;
-  --bar: #2a4a4c;
-  --bar-edge: #3d6b6a;
-  --gold: #e8c07a;
-  --gold-bright: #ffe0a3;
-  --red: #c2564f;
+  --bg: #050f0a;
+  --bg-glow: #0d2617;
+  --ink: #f5ecd8;
+  --muted: #85a892;
+  --pine: #39734f;
+  --pine-lit: #52a06f;
+  --gold: #e6b45a;
+  --gold-bright: #ffd98d;
+  --holly: #c0392f;
+  --edge: #2a4a37;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: radial-gradient(ellipse at 50% -10%, #1b3235 0%, var(--bg) 60%);
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 104%, rgba(192, 57, 47, 0.13) 0%, transparent 70%),
+    radial-gradient(ellipse at 50% -10%, var(--bg-glow) 0%, var(--bg) 58%);
+  background-attachment: fixed;
   color: var(--ink);
-  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+  font-family: Cinzel, "Iowan Old Style", Palatino, Georgia, serif;
   min-height: 100vh;
 }
 
@@ -36,15 +40,15 @@ main {
   align-items: center;
   justify-content: center;
   gap: 0.2em 0.7em;
-  font-size: clamp(2rem, 5vw, 3.25rem);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 1.15;
-  color: var(--gold);
+  font-size: clamp(1.9rem, 4.6vw, 3rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  color: var(--gold-bright);
 }
 
 .name {
-  text-shadow: 0 0 26px rgba(232, 192, 122, 0.35);
+  text-shadow: 0 0 8px rgba(255, 217, 141, 0.45), 0 0 34px rgba(230, 180, 90, 0.3);
 }
 
 #keyboard svg { width: 100%; height: auto; overflow: visible; }
@@ -54,14 +58,14 @@ main {
 .bar-hit { fill: transparent; }
 
 .figure {
-  fill: var(--bar-edge);
+  fill: var(--pine);
   transition: fill 0.25s ease;
 }
 
-.bar:hover .figure { fill: #5d8b87; }
+.bar:hover .figure { fill: var(--pine-lit); }
 
 .bar:focus-visible .bar-hit {
-  fill: rgba(232, 192, 122, 0.09);
+  fill: rgba(230, 180, 90, 0.1);
   stroke: var(--gold);
   stroke-width: 2;
 }
@@ -71,30 +75,34 @@ main {
   animation: breathe 3.4s ease-in-out infinite;
 }
 
+/* Candlelight rather than a steady spotlight. */
 @keyframes breathe {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(232, 192, 122, 0.30)); }
-  50%      { filter: drop-shadow(0 0 18px rgba(232, 192, 122, 0.70)); }
+  0%, 100% { filter: drop-shadow(0 0 7px rgba(230, 180, 90, 0.35)); }
+  50%      { filter: drop-shadow(0 0 20px rgba(255, 217, 141, 0.75)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bar.is-on .figure {
     animation: none;
-    filter: drop-shadow(0 0 10px rgba(232, 192, 122, 0.5));
+    filter: drop-shadow(0 0 12px rgba(230, 180, 90, 0.55));
   }
 }
 
+/* Letters stay hidden until a caroler is singing, so the choir reads as a
+   choir rather than a keyboard. Keyboard focus reveals one too, otherwise
+   there would be no way to find a letter without a mouse. */
 .bar-letter {
-  fill: var(--muted);
+  fill: var(--gold-bright);
   font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   pointer-events: none;
-  transition: fill 0.25s ease;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.bar:hover .bar-letter { fill: var(--ink); }
-
-.bar.is-on .bar-letter { fill: var(--gold-bright); }
+.bar.is-on .bar-letter,
+.bar:focus-visible .bar-letter { opacity: 1; }
 
 .controls {
   display: flex;
@@ -104,19 +112,19 @@ main {
 
 #clear {
   background: none;
-  border: 1px solid #2f5250;
+  border: 1px solid var(--edge);
   color: var(--muted);
   border-radius: 999px;
-  padding: 0.4rem 1.4rem;
+  padding: 0.45rem 1.5rem;
   font: inherit;
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
   transition: border-color 0.18s ease, color 0.18s ease;
 }
 
-#clear:hover { border-color: var(--gold); color: var(--gold); }
+#clear:hover { border-color: var(--holly); color: var(--holly); }
 
 @media (max-width: 640px) {
   main { padding: 2rem 1rem 3rem; }
