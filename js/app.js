@@ -6,6 +6,19 @@ const CAROLERS = [
   "img/caroler-soprano.svg",
 ];
 
+// Vintage bulb colours -- jewelled rather than primary, so a lit row reads as a
+// string of Christmas lights and not a paint box. Dealt in order down the rows,
+// which is how a real string alternates. The glow is kept as a bare rgb triple
+// so the keyframes can vary its alpha.
+const BULBS = [
+  { lit: "#e8b95c", glow: "232, 185, 92" },   // amber
+  { lit: "#d4645c", glow: "212, 100, 92" },   // cranberry
+  { lit: "#7fb3d5", glow: "127, 179, 213" },  // frost blue
+  { lit: "#c98bb8", glow: "201, 139, 184" },  // plum
+  { lit: "#e0925a", glow: "224, 146, 90" },   // copper
+  { lit: "#f0e0b8", glow: "240, 224, 184" },  // warm white
+];
+
 const FIGURE = 100;
 const COL_W = 122;
 const LABEL_H = 34;
@@ -301,6 +314,8 @@ function buildChoir() {
     .attr("tabindex", 0)
     .attr("role", "button")
     .attr("aria-label", (d) => `${d.letter}, ${d.note}`)
+    .style("--lit", (d, i) => BULBS[i % BULBS.length].lit)
+    .style("--glow", (d, i) => BULBS[i % BULBS.length].glow)
     .on("click", (event, d) => toggle(d))
     .on("keydown", (event, d) => {
       if (event.key === "Enter" || event.key === " ") {

@@ -106,20 +106,21 @@ main {
 .bar:focus-visible .figure { fill: var(--pine-lit); }
 
 .bar.is-on .figure {
-  fill: var(--gold);
+  fill: var(--lit);
   animation: breathe 3.4s ease-in-out infinite;
 }
 
-/* Candlelight rather than a steady spotlight. */
+/* Candlelight rather than a steady spotlight, in whichever bulb colour this
+   caroler carries. */
 @keyframes breathe {
-  0%, 100% { filter: drop-shadow(0 0 7px rgba(230, 180, 90, 0.35)); }
-  50%      { filter: drop-shadow(0 0 20px rgba(255, 217, 141, 0.75)); }
+  0%, 100% { filter: drop-shadow(0 0 7px rgba(var(--glow), 0.35)); }
+  50%      { filter: drop-shadow(0 0 22px rgba(var(--glow), 0.85)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bar.is-on .figure {
     animation: none;
-    filter: drop-shadow(0 0 12px rgba(230, 180, 90, 0.55));
+    filter: drop-shadow(0 0 14px rgba(var(--glow), 0.6));
   }
 }
 
