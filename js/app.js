@@ -276,6 +276,22 @@ function stopMouths() {
   openLayer.attr("opacity", (d) => layerOpacity(d, 0));
 }
 
+// Inlined rather than used as an <img> so it inherits fill from CSS, the same
+// reason the carolers are.
+function loadStar() {
+  return fetch("img/star.svg")
+    .then((r) => r.text())
+    .then((text) => {
+      const parsed = new DOMParser().parseFromString(text, "image/svg+xml");
+      const node = d3
+        .select("#star")
+        .append("svg")
+        .attr("viewBox", "0 0 1200 1200")
+        .node();
+      node.appendChild(document.importNode(parsed.querySelector("path"), true));
+    });
+}
+
 function buildChoir() {
   bars = svg
     .selectAll("g.bar")
@@ -366,6 +382,7 @@ function render() {
   bars.classed("is-on", (d) => selected.has(d.letter));
 
   const found = matchedNames();
+  d3.select("#star").classed("is-lit", found.length > 0);
 
   d3.select("#names")
     .selectAll("span.name")
@@ -402,7 +419,7 @@ setNoteListener((letter, at, dur) => {
   list.push({ start: at, end: at + Math.max(0.12, dur * 0.55) });
 });
 
-loadCarolers().then(() => {
+Promise.all([loadCarolers(), loadStar()]).then(() => {
   buildChoir();
   layout();
   render();
