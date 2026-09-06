@@ -3,7 +3,10 @@
 const GROUND = [50, 45, 47, 42, 43, 38, 43, 45];
 const STEP_DUR = 1.25;
 const LOOKAHEAD = 0.35;
-const UNITS_PER_STEP = 12;
+// 24 units to a ground step: quarter 12, eighth 6, sixteenth 3, triplet 8.
+// At 12 a sixteenth was 1.5 units, so neither sixteenths nor triplets could
+// be written at all.
+const UNITS_PER_STEP = 24;
 const CYCLE_UNITS = GROUND.length * UNITS_PER_STEP; // one full ground statement
 
 const CHORD_SETS = {
@@ -22,49 +25,75 @@ for (let m = 38; m <= 93; m += 1) {
   if (SCALE_PCS.includes(m % 12)) SCALE.push(m);
 }
 
-// The Canon is a set of variations over one repeating bass, and it grows by
-// progressive diminution -- each variation moves in smaller note values than
-// the last. These are one ground statement long (96 units) so a phrase always
-// begins where the harmony does.
+// Every figure below is transcribed from the Canon itself, parsed out of the
+// Mutopia Project's edition of the full three-violin score (CC BY 4.0) and cut
+// at the ground, which is 192 units here. Statement 0 comes out as
+// F# E D C# B A B C#, the opening everyone knows.
 //
-// The first is the actual opening melody, F# E D C# B A B C#, as scale steps
-// down from wherever the voice starts. The rest are written in its idiom:
-// stepwise descent, neighbour turns, gap-fill leaps and sequences.
+// The score has one melody line, not three: its own comment reads "It's a canon
+// so I'm writing it only once", with the violins differing solely in how many
+// bars they rest first. That is why the parts here share a vocabulary and are
+// separated only by which figures suit their register and by when they enter.
+//
+// Twenty-two usable statements survive the parse -- enough that all eighteen
+// letters get a different one. Contours are counted in scale steps and centred
+// on the voice's own note, so a phrase sits in that singer's register; each note
+// is then re-pitched to whatever chord it lands on.
 const VARIATIONS = [
-  {
-    rhythm: [12, 12, 12, 12, 12, 12, 12, 12],
-    contour: [0, -1, -2, -3, -4, -5, -4, -3],
-  },
-  {
-    rhythm: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
-    contour: [0, -1, -2, -1, -2, -3, -2, -3, -4, -3, -4, -5, -4, -3, -2, -1],
-  },
-  {
-    rhythm: [9, 3, 9, 3, 9, 3, 9, 3, 9, 3, 9, 3, 9, 3, 9, 3],
-    contour: [0, -2, -1, -3, -2, -4, -3, -5, -4, -6, -5, -3, -4, -2, -3, -1],
-  },
-  {
-    rhythm: new Array(32).fill(3),
-    contour: [
-      0, -1, -2, -3, -4, -5, -6, -7, -6, -5, -4, -3, -2, -1, 0, -1,
-      -2, -3, -4, -5, -6, -7, -6, -5, -4, -3, -2, -1, 0, -1, -2, -3,
-    ],
-  },
-  {
-    rhythm: [-3, 9, -3, 9, -3, 9, -3, 9, -3, 9, -3, 9, -3, 9, -3, 9],
-    contour: [0, -2, -4, -3, -5, -4, -2, -1],
-  },
-  {
-    rhythm: [6, 3, 3, 6, 3, 3, 6, 3, 3, 6, 3, 3, 6, 3, 3, 6, 3, 3, 6, 3, 3, 6, 3, 3],
-    contour: [
-      0, -1, -2, -1, -2, -3, -2, -3, -4, -3, -4, -5,
-      -4, -5, -6, -3, -4, -5, -2, -3, -4, -1, -2, -3,
-    ],
-  },
-  {
-    rhythm: [24, 24, 24, 24],
-    contour: [0, -2, -4, -3],
-  },
+  // 0 -- statement 1: 8 notes
+  { rhythm: [24, 24, 24, 24, 24, 24, 24, 24],
+    contour: [3, 2, 1, 0, -1, -2, -1, -3] },
+  // 1 -- statement 10: 8 notes
+  { rhythm: [12, -12, 12, -12, 12, -12, 12, -12, 12, -12, 12, -12, 12, -12, 12, -12],
+    contour: [4, 3, 2, 4, -3, -3, -3, -2] },
+  // 2 -- statement 11: 8 notes
+  { rhythm: [-12, 12, -12, 12, -12, 12, -12, 12, -12, 12, -12, 12, -12, 12, -12, 12],
+    contour: [0, 0, -2, 0, -1, -2, -1, 4] },
+  // 3 -- statement 6: 9 notes
+  { rhythm: [12, 12, 24, -12, 12, 24, 24, 24, 24, 24],
+    contour: [-7, 0, -1, -2, 0, 3, 2, 3, 4] },
+  // 4 -- statement 7: 11 notes
+  { rhythm: [12, 12, 24, -12, 12, 24, 36, 12, 12, 12, 12, 12],
+    contour: [6, -1, -2, -3, -1, -1, -1, -1, 2, 0, 3] },
+  // 5 -- statement 18: 10 notes
+  { rhythm: [36, 12, 36, 12, 24, 24, 12, 12, 18, 6],
+    contour: [2, 2, -2, 2, 1, 2, 1, -2, -2, -3] },
+  // 6 -- statement 24: 10 notes
+  { rhythm: [24, 18, 6, 24, 18, 6, 36, 12, 24, 24],
+    contour: [5, -2, -3, -4, 3, 2, 1, 1, 1, 0] },
+  // 7 -- statement 0: 8 notes
+  { rhythm: [24, 24, 24, 24, 24, 24, 24, 24],
+    contour: [3, 2, 1, 0, -1, -2, -1, 0] },
+  // 8 -- statement 19: 11 notes
+  { rhythm: [12, 12, 24, 24, 24, 18, 6, 24, 24, 18, 6],
+    contour: [-3, 4, 3, 2, 1, -3, -2, -1, 2, -2, -2] },
+  // 9 -- statement 22: 11 notes
+  { rhythm: [12, 24, 24, 24, 12, 12, 24, 12, 18, 6, 24],
+    contour: [3, 3, 2, 1, 0, 0, -1, -2, -2, -3, -3] },
+  // 10 -- statement 2: 16 notes
+  { rhythm: [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12],
+    contour: [-2, 0, 2, 1, 0, -2, 0, -1, -2, -4, -2, 2, 1, 3, 2, 1] },
+  // 11 -- statement 3: 16 notes
+  { rhythm: [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 18, 6],
+    contour: [-3, -5, -4, 1, 2, 4, 6, -1, 0, -2, -1, -3, -5, 2, 2, 1] },
+  // 12 -- statement 12: 32 notes
+  { rhythm: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    contour: [7, 0, 1, 0, -1, 6, 7, 6, 5, 0, -2, 3, 2, -5, -6, -5, -4, 3, 4, 3, 2, -5, -6, -5, -4, 3, 2, 3, 4, -3, -4, -3] },
+  // 13 -- statement 13: 32 notes
+  { rhythm: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    contour: [-5, 2, 3, 2, 1, -6, -5, -6, -7, 0, -1, 0, 1, -6, -3, -4, -5, 2, 3, 5, 4, -3, -1, 4, 2, 5, 4, 5, 3, -1, -2, -1] },
+  // 14 -- statement 14: 32 notes
+  { rhythm: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    contour: [-2, 0, 0, 0, 0, 0, 0, 0, -2, -2, -2, -2, -2, -2, 0, 0, -1, -1, -1, 3, 3, 3, 3, 3, 3, 3, 1, 1, 0, 0, 4, 2] },
+  // 15 -- statement 4: 32 notes
+  { rhythm: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    contour: [2, 1, 2, -5, -6, -1, -4, -3, -5, 2, 1, 0, 1, 4, 6, 7, 5, 4, 3, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -2, -3, -4] },
+  // 16 -- statement 16: 40 notes
+  { rhythm: [6, 3, 3, 6, 6, 6, 3, 3, 6, 6, 6, 3, 3, 6, 6, 6, 3, 3, 6, 6, 6, 3, 3, 6, 6, 6, 3, 3, 6, 6, 6, 3, 3, 6, 6, 6, 3, 3, 6, 6],
+    contour: [5, -2, -1, 0, -2, -3, 4, 5, 6, 4, 3, -4, -3, -2, -4, -3, 2, 1, 0, -1, -2, 1, 0, -1, 1, 0, -2, -1, 0, 2, 1, 3, 2, 1, 0, -1, 2, 1, 0, -1] },
+  // 17 -- statement 9: 56 notes
+  { rhythm: [6, 3, 3, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 3, 3, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 3, 3, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 6, 3, 3, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+    contour: [3, 1, 2, 3, 2, 1, 2, 0, 1, 2, 3, 2, 1, 0, 1, -1, 0, 1, -6, -5, -4, -3, -4, -5, -4, 1, 0, 1, -1, 1, 0, -1, -2, -3, -2, -3, -4, -3, -2, -1, 0, 1, -1, 1, 0, 1, 0, -1, 0, 1, 2, 1, 0, 1, -1, 0] },
 ];
 
 // Sung-vowel formants for /u/, which sit lower and tighter than the spoken
@@ -73,25 +102,25 @@ const PARTS = [
   {
     top: 55,
     vowel: [[300, 60, 1.0], [870, 90, 0.16], [2240, 190, 0.02], [2600, 220, 0.008]],
-    vars: [0, 4, 6],
+    vars: [0, 1, 2, 3, 4, 5],
     pan: -0.5,
   },
   {
     top: 63,
     vowel: [[300, 60, 1.0], [870, 90, 0.2], [2240, 190, 0.026], [2640, 220, 0.01]],
-    vars: [0, 1, 5],
+    vars: [6, 7, 8],
     pan: -0.18,
   },
   {
     top: 71,
     vowel: [[370, 70, 1.0], [950, 100, 0.25], [2670, 200, 0.03], [3060, 240, 0.012]],
-    vars: [1, 2, 5],
+    vars: [9, 10, 11, 12, 13],
     pan: 0.18,
   },
   {
     top: 128,
     vowel: [[370, 70, 1.0], [950, 100, 0.3], [2670, 200, 0.04], [3060, 240, 0.015]],
-    vars: [2, 3, 5],
+    vars: [14, 15, 16, 17],
     pan: 0.5,
   },
 ];
@@ -147,6 +176,22 @@ function partFor(midi) {
   return PARTS.find((p) => midi <= p.top) || PARTS[PARTS.length - 1];
 }
 
+// Deal each part's figures round-robin down its letters rather than hashing
+// them. A hash clumps: it put three of the six low voices on one figure while
+// leaving others unused, and the opening theme on a single letter. Pools run
+// slowest to busiest, so the highest voice of a part gets the busiest figure.
+const FIGURE_OF = (() => {
+  const seen = new Map();
+  const out = new Map();
+  LETTER_NOTES.forEach((d) => {
+    const part = partFor(d.midi);
+    const i = seen.get(part) || 0;
+    seen.set(part, i + 1);
+    out.set(d.letter, part.vars[i % part.vars.length]);
+  });
+  return out;
+})();
+
 // Build the vowel directly into the oscillator's spectrum instead of filtering
 // a sawtooth. Resonant filters ring, and that ringing on a buzzy source is
 // what reads as rasp -- here the harmonics are simply weighted and there is
@@ -185,7 +230,7 @@ function pitchAt(anchor, unit, offset, len) {
   let i = Math.min(SCALE.length - 1, Math.max(0, base + offset));
   // Anchor by weight, not just position: anything sustained has to be a chord
   // tone, while quick notes are free to pass between them.
-  const structural = len >= 6 || unit % UNITS_PER_STEP === 0;
+  const structural = len >= 12 || unit % 12 === 0;
   if (structural && !tones.includes(SCALE[i] % 12)) {
     const up = i + 1 < SCALE.length && tones.includes(SCALE[i + 1] % 12);
     i = up ? i + 1 : Math.max(0, i - 1);
@@ -314,22 +359,27 @@ function singOo(midi, at, dur, v) {
   air.stop(end + rel + 0.05);
 }
 
-// A voice re-reads its variation each time the ground comes round, moving on
-// to the next one every second statement -- so the texture keeps diminishing
-// the way the piece itself does, rather than looping a fixed cell.
-function notesForCycle(v, cycle) {
-  const list = v.part.vars;
-  const spec = VARIATIONS[list[(Math.floor(cycle / 2) + v.offset) % list.length]];
+// A figure shorter than the statement simply repeats until the statement is
+// full. It still never sounds twice the same, because each note is pitched
+// against whichever chord it lands on -- one figure, eight harmonisations,
+// which is the Canon's own principle.
+function notesForCycle(v) {
+  const spec = VARIATIONS[v.variation];
+  const span = spec.rhythm.reduce((a, b) => a + Math.abs(b), 0);
   const notes = [];
-  let u = 0;
+  let base = 0;
   let n = 0;
-  spec.rhythm.forEach((len) => {
-    if (len > 0) {
-      notes.push({ u, len, off: spec.contour[n % spec.contour.length] });
-      n += 1;
-    }
-    u += Math.abs(len);
-  });
+  while (base < CYCLE_UNITS) {
+    let u = 0;
+    spec.rhythm.forEach((len) => {
+      if (len > 0) {
+        notes.push({ u: base + u, len, off: spec.contour[n % spec.contour.length] });
+        n += 1;
+      }
+      u += Math.abs(len);
+    });
+    base += span;
+  }
   return notes;
 }
 
@@ -341,7 +391,7 @@ function scheduleStep(s, at) {
   held.forEach((v, letter) => {
     if (v.cycle !== cycle) {
       v.cycle = cycle;
-      v.notes = notesForCycle(v, cycle);
+      v.notes = notesForCycle(v);
     }
     v.notes.forEach((nt) => {
       const u = (nt.u + v.entry) % CYCLE_UNITS;
@@ -400,12 +450,15 @@ function holdLetter(letter, midi) {
     midi,
     part,
     channel,
-    offset: hashOf(letter) % part.vars.length,
+    // Fixed for as long as the letter is held. Rotating between figures left a
+    // caroler with no identity -- a voice would set up a run of sixteenths and
+    // then abandon it a few bars later for something slower.
+    variation: FIGURE_OF.get(letter),
     // Each voice starts its phrase somewhere else in the ground, so two letters
     // that drew the same variation sing it in canon rather than in unison.
     // Offsetting by whole steps is not enough -- a rhythm already sitting on a
     // regular subdivision stays locked to it -- so stagger on the finest grid.
-    entry: ((hashOf(letter) >>> 8) % 32) * 3,
+    entry: ((hashOf(letter) >>> 8) % 32) * 6,
     cycle: -1,
     notes: [],
   });
