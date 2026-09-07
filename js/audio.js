@@ -256,21 +256,83 @@ function vowelWave(midi, part) {
   return w;
 }
 
+// Scale steps to the octave, and the highest note anyone sings. Above C6 a
+// voice stops reading as a voice: the tone is nearly a sine by then, since the
+// vowel's own roll-off has taken everything above the fundamental away.
+const OCTAVE_STEPS = 7;
+const TOP = 84;
+
 // Strong beats take chord tones, weaker ones may pass through the scale. That
 // is the ordinary rule of Baroque part-writing, and it is what lets the lines
 // move by step without the result turning sour.
-function pitchAt(anchor, unit, offset, len) {
-  const s = Math.floor(unit / UNITS_PER_STEP) % GROUND.length;
-  const tones = CHORD_SETS[GROUND[s] % 12];
+function pitchAt(anchor, unit, nt) {
+  const first = Math.floor(unit / UNITS_PER_STEP);
+  const bass = GROUND[first % GROUND.length];
+  // A note longer than the ground step it starts on is still sounding when the
+  // chord underneath it changes, so it has to belong to every chord it spans.
+  // Six of the dotted halves were chord tones on the way in and wrong notes on
+  // the way out -- a suspension that never resolves, held at full length.
+  let tones = CHORD_SETS[bass % 12];
+  const last = Math.floor((unit + nt.len - 1) / UNITS_PER_STEP);
+  for (let t = first + 1; t <= last; t += 1) {
+    const next = CHORD_SETS[GROUND[t % GROUND.length] % 12];
+    const both = tones.filter((pc) => next.includes(pc));
+    if (both.length) tones = both;
+  }
   let base = 0;
   while (base + 1 < SCALE.length && SCALE[base + 1] <= anchor) base += 1;
-  let i = Math.min(SCALE.length - 1, Math.max(0, base + offset));
+  let i = Math.min(SCALE.length - 1, Math.max(0, base + nt.off));
+
+  // Fold by octaves rather than clamping at the ends of the scale. Clamping
+  // pins a voice onto its limit -- the top sopranos were spending a third of
+  // their notes sitting on one note -- where folding keeps the shape of the
+  // phrase and only changes the register it is sung in.
+  while (SCALE[i] > TOP && i - OCTAVE_STEPS >= 0) i -= OCTAVE_STEPS;
+  // Nobody sings beneath the ground bass. Pachelbel's harmony is in root
+  // position throughout, and a caroler dipping under the bass turns the chord
+  // into an inversion, which the ear hears as the wrong chord rather than as a
+  // low note. Four of the six low voices were doing this a fifth of the time.
+  while (SCALE[i] < bass && i + OCTAVE_STEPS < SCALE.length) i += OCTAVE_STEPS;
+
   // Anchor by weight, not just position: anything sustained has to be a chord
   // tone, while quick notes are free to pass between them.
-  const structural = len >= 12 || unit % 12 === 0;
+  //
+  // "Quick" used to mean anything shorter than a quarter, which let every
+  // off-beat eighth leave the chord. On one violin that is invisible; on
+  // eighteen sustained voices in a room this size the passing notes stop
+  // passing and become the chord. Only a sixteenth is quick enough now.
+  let structural = nt.len >= 6 || unit % 12 === 0;
+  // And a sixteenth only passes if it is actually passing -- a step in and a
+  // step out. Landing on a note outside the chord and then leaping away from
+  // it is not a passing tone, it is a wrong note taken at speed.
+  if (!structural && nt.prev !== null && nt.next !== null) {
+    const into = nt.off - nt.prev;
+    const out = nt.next - nt.off;
+    const passes = Math.abs(into) === 1 && into === out;
+    const turns = Math.abs(into) === 1 && into === -out;
+    if (!passes && !turns) structural = true;
+  }
+
   if (structural && !tones.includes(SCALE[i] % 12)) {
-    const up = i + 1 < SCALE.length && tones.includes(SCALE[i + 1] % 12);
-    i = up ? i + 1 : Math.max(0, i - 1);
+    // Move to the nearest available tone that does not undo the two rules
+    // above, so fixing the harmony can never push a voice back over the top or
+    // back under the bass. Upward by preference: in this scale every note
+    // outside a chord has a chord tone directly above it, and resolving up is
+    // what the ear expects. The search widens because a note spanning a chord
+    // change is held to the two chords' common tones, and the nearest of those
+    // can be four scale steps away rather than one.
+    for (let d = 1; d <= 4; d += 1) {
+      const up = i + d;
+      const down = i - d;
+      if (up < SCALE.length && tones.includes(SCALE[up] % 12) && SCALE[up] <= TOP) {
+        i = up;
+        break;
+      }
+      if (down >= 0 && tones.includes(SCALE[down] % 12) && SCALE[down] >= bass) {
+        i = down;
+        break;
+      }
+    }
   }
   return SCALE[i];
 }
@@ -455,6 +517,12 @@ function notesForCycle(v, cycle) {
     });
     base += span;
   }
+  // Each note needs to know where its line came from and where it is going:
+  // that is what tells a passing sixteenth apart from a leap onto a wrong one.
+  notes.forEach((nt, k) => {
+    nt.prev = k > 0 ? notes[k - 1].off : null;
+    nt.next = k + 1 < notes.length ? notes[k + 1].off : null;
+  });
   return notes;
 }
 
@@ -476,7 +544,7 @@ function scheduleStep(s, at) {
       const absUnit = cycle * CYCLE_UNITS + u;
       const when = at + (u - local * UNITS_PER_STEP) * unit;
       const dur = nt.len * unit * 0.96;
-      singOo(pitchAt(v.midi, absUnit, nt.off, nt.len), when, dur, v);
+      singOo(pitchAt(v.midi, absUnit, nt), when, dur, v);
       if (noteListener) noteListener(letter, when, dur);
     });
   });
