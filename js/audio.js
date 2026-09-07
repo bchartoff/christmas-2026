@@ -308,18 +308,20 @@ function ensureCtx() {
     // reads as synthetic however carefully its spectrum is modelled. The
     // space does as much of the work here as the vowel does.
     dry = ctx.createGain();
-    dry.gain.value = 0.5;
+    dry.gain.value = 0.42;
     choir.connect(dry).connect(shelf);
 
+    // A church rather than a room. Length and wet level are most of what makes
+    // a choir sound like a choir heard from somewhere, not a synth up close.
     const predelay = ctx.createDelay(0.2);
-    predelay.delayTime.value = 0.028;
+    predelay.delayTime.value = 0.045;
     const damp = ctx.createBiquadFilter();
     damp.type = "lowpass";
-    damp.frequency.value = 2400;
+    damp.frequency.value = 2200;
     const verb = ctx.createConvolver();
-    verb.buffer = makeImpulse(3.4, 2.4);
+    verb.buffer = makeImpulse(5.6, 2.1);
     wet = ctx.createGain();
-    wet.gain.value = 0.55;
+    wet.gain.value = 0.78;
     choir.connect(predelay).connect(damp).connect(verb).connect(wet).connect(shelf);
 
     const groundChannel = ctx.createGain();
@@ -336,8 +338,8 @@ function ensureCtx() {
 
 function singOo(midi, at, dur, v) {
   const part = v.part;
-  const att = Math.min(0.3, dur * 0.5);
-  const rel = Math.min(0.7, dur * 1.1);
+  const att = Math.min(0.45, dur * 0.55);
+  const rel = Math.min(1.1, dur * 1.4);
   const end = at + dur;
   // Slightly hotter for short notes than long. The reverse of this was burying
   // the thirty-second-note writing under the sustained parts.
@@ -357,7 +359,7 @@ function singOo(midi, at, dur, v) {
   wobble.type = "peaking";
   wobble.frequency.value = part.vowel[1][0];
   wobble.Q.value = 1.6;
-  wobble.gain.value = 3;
+  wobble.gain.value = 2.4;
   wobble.connect(out);
 
   const wLfo = ctx.createOscillator();
@@ -377,9 +379,6 @@ function singOo(midi, at, dur, v) {
   vib.start(at);
   vib.stop(end + rel + 0.05);
 
-  // Two voices per part rather than one. A single oscillator is a soloist;
-  // the small pitch disagreement between two is most of what says "several
-  // people are singing this line".
   // Shimmer: a slow unevenness in loudness. Along with the drift below it is
   // most of what separates a person from an oscillator holding a note.
   const body = ctx.createGain();
@@ -393,16 +392,19 @@ function singOo(midi, at, dur, v) {
   shim.start(at);
   shim.stop(end + rel + 0.05);
 
+  // Three singers to a line, spread wider than before. A section is not two
+  // people in tune with each other; the disagreement between several is what
+  // stops a line sounding like one voice with an effect on it.
   const wave = vowelWave(midi, part);
-  [-6, 6].forEach((cents) => {
+  [-11, 0, 11].forEach((cents) => {
     const osc = ctx.createOscillator();
     osc.setPeriodicWave(wave);
     osc.frequency.value = midiToHz(midi);
-    osc.detune.value = cents + (Math.random() * 5 - 2.5);
+    osc.detune.value = cents + (Math.random() * 7 - 3.5);
     vibGain.connect(osc.detune);
 
-    // Each singer wanders on their own. Sharing one vibrato made the pair beat
-    // at a fixed rate, which reads as a chorus effect rather than two people.
+    // Each singer wanders on their own. Sharing one vibrato made them beat at
+    // a fixed rate, which reads as a chorus effect rather than several people.
     const drift = ctx.createOscillator();
     const driftDepth = ctx.createGain();
     drift.frequency.value = 0.25 + Math.random() * 0.45;
