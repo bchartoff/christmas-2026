@@ -52,7 +52,7 @@ body {
    page has to say what that picture is for before they meet eighteen identical
    grey figures and no instructions. */
 #intro {
-  width: min(30rem, calc(100vw - 2rem));
+  width: min(32rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   margin: auto;
   padding: 0;
@@ -84,13 +84,20 @@ body {
 }
 
 /* Instructions in the fallback serif, for the same reason the credit is: Roman
-   capitals suit a title, not two paragraphs somebody has to actually read. */
+   capitals suit a title, not two paragraphs somebody has to actually read.
+   Centred text strands the last line badly -- at the old width "revealed." sat
+   alone under a full line -- and the width alone cannot fix it, because on a
+   phone the box is capped by the viewport rather than set here. Balancing the
+   lines fixes it at every width instead: measured across 24-34rem it leaves
+   every last line at 96-100% of the longest, where the browser's own orphan
+   avoidance moved a single word and no more. */
 #intro p {
   margin: 0 0 1rem;
   font-family: "Iowan Old Style", Palatino, Georgia, serif;
   font-size: 0.95rem;
   line-height: 1.75;
   color: #cec3ab;
+  text-wrap: balance;
 }
 
 #intro-close {
