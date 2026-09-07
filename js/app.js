@@ -510,6 +510,25 @@ function armGround() {
 
 armGround();
 
+// Nobody arrives here knowing what to do: the choir is eighteen identical grey
+// figures and every letter is hidden until its caroler is clicked. The picture
+// they were emailed is the key, so the page has to say so before anything else.
+//
+// A real <dialog> rather than a div and an overlay -- it traps focus, closes on
+// Escape and makes the page behind it inert, none of which is worth writing by
+// hand. Dismissing it is also the visitor's first click, so the ground bass
+// begins as the card closes, which is as good a cue as any that sound works.
+const intro = document.getElementById("intro");
+if (intro && typeof intro.showModal === "function") {
+  intro.showModal();
+  d3.select("#intro-close").on("click", () => intro.close());
+  intro.addEventListener("click", (event) => {
+    // A click on the backdrop is reported against the dialog itself; anything
+    // inside the panel has a deeper target than that.
+    if (event.target === intro) intro.close();
+  });
+}
+
 // The mouth shuts partway through each note rather than staying open for its
 // full length. The voices sing almost continuously, so holding it open for the
 // whole note reads as one gaping mouth instead of a figure articulating.

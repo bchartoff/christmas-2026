@@ -48,6 +48,91 @@ body {
 
 #glow.is-lit { opacity: 1; }
 
+/* A visitor arrives here from an email holding a picture of the choir, so the
+   page has to say what that picture is for before they meet eighteen identical
+   grey figures and no instructions. */
+#intro {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #0b1120 0%, var(--bg) 100%);
+  color: var(--ink);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), 0 0 70px rgba(255, 217, 141, 0.07);
+}
+
+#intro::backdrop {
+  background: rgba(3, 5, 12, 0.84);
+  backdrop-filter: blur(3px);
+}
+
+.intro-body {
+  padding: 2.4rem 2rem 1.9rem;
+  text-align: center;
+}
+
+#intro h2 {
+  margin: 0 0 1.2rem;
+  font-size: clamp(1.3rem, 4.4vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(255, 217, 141, 0.35);
+}
+
+/* Instructions in the fallback serif, for the same reason the credit is: Roman
+   capitals suit a title, not two paragraphs somebody has to actually read. */
+#intro p {
+  margin: 0 0 1rem;
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: #cec3ab;
+}
+
+#intro-close {
+  margin-top: 0.7rem;
+  background: none;
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  border-radius: 999px;
+  padding: 0.5rem 2.1rem;
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+#intro-close:hover,
+#intro-close:focus-visible {
+  background: rgba(230, 180, 90, 0.14);
+  border-color: var(--gold-bright);
+}
+
+#intro .intro-note {
+  margin: 1.3rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+#intro[open] {
+  animation: intro-in 0.45s ease both;
+}
+
+@keyframes intro-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #intro[open] { animation: none; }
+}
+
 main {
   position: relative;
   z-index: 1;
