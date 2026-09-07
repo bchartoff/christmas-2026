@@ -10,6 +10,9 @@ const LOOKAHEAD = 0.35;
 // be written at all.
 const UNITS_PER_STEP = 24;
 const CYCLE_UNITS = GROUND.length * UNITS_PER_STEP; // one full ground statement
+// Statements per section. Every voice moves to its next figure together, so
+// the piece changes section rather than one singer wandering off alone.
+const SECTION_CYCLES = 2;
 
 const CHORD_SETS = {
   2: [2, 6, 9, 11],
@@ -104,25 +107,25 @@ const PARTS = [
   {
     top: 55,
     vowel: [[300, 60, 1.0], [870, 90, 0.16], [2240, 190, 0.02], [2600, 220, 0.008]],
-    vars: [0, 1, 2, 3, 4, 5],
+    level: 0.8,
     pan: -0.5,
   },
   {
     top: 63,
     vowel: [[300, 60, 1.0], [870, 90, 0.2], [2240, 190, 0.026], [2640, 220, 0.01]],
-    vars: [6, 7, 8],
+    level: 0.85,
     pan: -0.18,
   },
   {
     top: 71,
     vowel: [[370, 70, 1.0], [950, 100, 0.25], [2670, 200, 0.03], [3060, 240, 0.012]],
-    vars: [9, 10, 17, 12, 16],
+    level: 1.05,
     pan: 0.18,
   },
   {
     top: 128,
     vowel: [[370, 70, 1.0], [950, 100, 0.3], [2670, 200, 0.04], [3060, 240, 0.015]],
-    vars: [14, 15, 13, 11],
+    level: 1.5,
     pan: 0.5,
   },
 ];
@@ -188,17 +191,43 @@ function partFor(midi) {
 // figures are placed on I and L rather than on the top two sopranos. Those
 // letters appear in six names each where O and Y appear in four and one, so
 // the liveliest writing is heard far more often.
-const FIGURE_OF = (() => {
-  const seen = new Map();
+// Pools are grouped by weight rather than by part, so every figure a voice can
+// reach is about as busy as the one before it. Grouping them by part was the
+// flaw the first time this rotated: a pool holding both a 56-note run and an
+// 11-note figure meant a voice would set up a flurry and then drop to a fifth
+// the speed a few bars later.
+const POOLS = {
+  low: [0, 1, 2, 3, 4, 5], //  8-11 notes
+  tenor: [6, 7, 8], //  8-11
+  mid: [9, 10, 11], // 11-16
+  upper: [12, 13, 14, 15, 16, 17], // 32-56
+};
+
+const VOICE_OF = (() => {
+  const count = new Map(
+    LETTER_NOTES.map((d) => [d.letter, NAMES.filter((n) => n.includes(d.letter)).length])
+  );
+  const used = new Map();
   const out = new Map();
   LETTER_NOTES.forEach((d) => {
-    const part = partFor(d.midi);
-    const i = seen.get(part) || 0;
-    seen.set(part, i + 1);
-    out.set(d.letter, part.vars[i % part.vars.length]);
+    const part = PARTS.indexOf(partFor(d.midi));
+    let pool = POOLS.mid;
+    if (part === 0) pool = POOLS.low;
+    else if (part === 1) pool = POOLS.tenor;
+    else if (part === 3) pool = POOLS.upper;
+    // Altos shared by many names are promoted to the busy pool, so the
+    // liveliest writing is heard in as many names as possible.
+    else if (count.get(d.letter) >= 6) pool = POOLS.upper;
+    const rank = used.get(pool) || 0;
+    used.set(pool, rank + 1);
+    out.set(d.letter, { pool, rank });
   });
   return out;
 })();
+
+function figureFor(v, cycle) {
+  return v.pool[(v.rank + Math.floor(cycle / SECTION_CYCLES)) % v.pool.length];
+}
 
 // Build the vowel directly into the oscillator's spectrum instead of filtering
 // a sawtooth. Resonant filters ring, and that ringing on a buzzy source is
@@ -310,7 +339,9 @@ function singOo(midi, at, dur, v) {
   const att = Math.min(0.3, dur * 0.5);
   const rel = Math.min(0.7, dur * 1.1);
   const end = at + dur;
-  const peak = 0.16 + 0.07 * Math.min(1, dur / STEP_DUR);
+  // Slightly hotter for short notes than long. The reverse of this was burying
+  // the thirty-second-note writing under the sustained parts.
+  const peak = 0.19 + 0.06 * (1 - Math.min(1, dur / STEP_DUR));
 
   const out = ctx.createGain();
   out.gain.setValueAtTime(0.0001, at);
@@ -407,8 +438,8 @@ function singOo(midi, at, dur, v) {
 // full. It still never sounds twice the same, because each note is pitched
 // against whichever chord it lands on -- one figure, eight harmonisations,
 // which is the Canon's own principle.
-function notesForCycle(v) {
-  const spec = VARIATIONS[v.variation];
+function notesForCycle(v, cycle) {
+  const spec = VARIATIONS[figureFor(v, cycle)];
   const span = spec.rhythm.reduce((a, b) => a + Math.abs(b), 0);
   const notes = [];
   let base = 0;
@@ -437,7 +468,7 @@ function scheduleStep(s, at) {
   held.forEach((v, letter) => {
     if (v.cycle !== cycle) {
       v.cycle = cycle;
-      v.notes = notesForCycle(v);
+      v.notes = notesForCycle(v, cycle);
     }
     v.notes.forEach((nt) => {
       const u = nt.u;
@@ -488,7 +519,7 @@ function engineRunning() {
 function balance() {
   if (!choir) return;
   const voices = held.size + (groundOn ? 1 : 0);
-  choir.gain.setTargetAtTime(0.75 / Math.sqrt(Math.max(1, voices)), ctx.currentTime, 0.3);
+  choir.gain.setTargetAtTime(0.95 / Math.sqrt(Math.max(1, voices)), ctx.currentTime, 0.3);
 }
 
 function startGround() {
@@ -512,6 +543,7 @@ function holdLetter(letter, midi) {
   // than every note building its own. Choirs stand in sections, and a line
   // that wandered across the stage between notes would not read as one voice.
   const channel = ctx.createGain();
+  channel.gain.value = part.level;
   const panner = ctx.createStereoPanner();
   panner.pan.value = part.pan + (((hashOf(letter) >>> 16) % 100) / 100 - 0.5) * 0.24;
   channel.connect(panner).connect(choir);
@@ -520,10 +552,8 @@ function holdLetter(letter, midi) {
     midi,
     part,
     channel,
-    // Fixed for as long as the letter is held. Rotating between figures left a
-    // caroler with no identity -- a voice would set up a run of sixteenths and
-    // then abandon it a few bars later for something slower.
-    variation: FIGURE_OF.get(letter),
+    pool: VOICE_OF.get(letter).pool,
+    rank: VOICE_OF.get(letter).rank,
     cycle: -1,
     notes: [],
   });
