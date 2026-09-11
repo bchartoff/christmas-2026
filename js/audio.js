@@ -143,6 +143,7 @@ let step = 0;
 let noteListener = null;
 const held = new Map();
 const waves = new Map();
+const bows = new Map();
 
 // The scheduler already knows when every voice sings; the visuals just listen
 // in rather than trying to reconstruct the rhythm on their own.
@@ -256,6 +257,121 @@ function vowelWave(midi, part) {
   return w;
 }
 
+// Peak and sustain of one bow stroke. Measured rather than guessed: a cello
+// carries roughly 3.5x the A-weighted energy of a sung /u/ at the same peak
+// amplitude and the same pitch, because it has sixty-odd partials reaching
+// 4kHz where the vowel has twenty-four and a steep roll-off above 2.6kHz.
+// Set by ear these would have landed 6dB hot. This is parity with the voice
+// the cello replaces, plus 1.5dB, since it is now the only instrument in the
+// piece and should be able to be picked out.
+const CELLO_PEAK = 0.168;
+const CELLO_SUSTAIN = 0.132;
+
+// The continuo is a cello, not a nineteenth singer. A bowed string and a sung
+// /u/ are about as far apart as two sustained sounds get, which is the point:
+// the ground is the one line that never changes, so it should be the one voice
+// you can always pick out.
+//
+// A bowed string's motion at the bridge is close to a sawtooth, so its
+// harmonics fall as 1/n. What makes that a cello rather than a buzz is the
+// body, which radiates almost nothing at the bottom D's 73Hz and a great deal
+// around its air and wood resonances. Modelling the body as a handful of peaks
+// over the sawtooth is enough to get there.
+function celloBody(f) {
+  const peak = (F, B, g) => g / (1 + Math.pow((f - F) / (B / 2), 2));
+  let a = 0.2;
+  a += peak(105, 50, 0.55);    // A0, the air resonance inside the body
+  a += peak(195, 80, 0.95);    // the main wood resonance
+  a += peak(300, 120, 0.65);
+  a += peak(440, 180, 0.4);
+  a += peak(650, 300, 0.28);
+  a += peak(2200, 1500, 0.42); // the bridge hill, which is most of "cello"
+  return a * Math.exp(-Math.pow(f / 4200, 2));
+}
+
+function celloWave(midi) {
+  if (bows.has(midi)) return bows.get(midi);
+  const f0 = midiToHz(midi);
+  // Enough partials to reach the bridge hill. The voices stop at 24, which at
+  // the bottom of this line would not even clear 1.8kHz.
+  const n = Math.max(16, Math.min(64, Math.floor(7000 / f0)));
+  const real = new Float32Array(n + 1);
+  const imag = new Float32Array(n + 1);
+  for (let k = 1; k <= n; k += 1) {
+    // The weak fundamental is not a defect being corrected: no cello radiates
+    // its bottom notes strongly, the ear rebuilds the pitch from the harmonics,
+    // and on a laptop speaker that is the only way this line is heard at all.
+    imag[k] = (celloBody(f0 * k) / k) * (k === 1 ? 0.45 : 1);
+  }
+  const w = ctx.createPeriodicWave(real, imag);
+  bows.set(midi, w);
+  return w;
+}
+
+// One bow stroke. Slower to speak than a voice -- the string has to be set
+// moving -- and brightening as the bow grips, which is the part a static
+// filter cannot fake: held still it sounds like an organ stop.
+function bowCello(midi, at, dur) {
+  const end = at + dur;
+  const att = 0.085;
+  const rel = 0.34;
+
+  const out = ctx.createGain();
+  out.gain.setValueAtTime(0.0001, at);
+  out.gain.exponentialRampToValueAtTime(CELLO_PEAK, at + att);
+  out.gain.linearRampToValueAtTime(CELLO_SUSTAIN, at + att * 2.4);
+  out.gain.setValueAtTime(CELLO_SUSTAIN, Math.max(at + att * 2.6, end - 0.1));
+  out.gain.exponentialRampToValueAtTime(0.0001, end + rel);
+  out.connect(ground.channel);
+
+  const tone = ctx.createBiquadFilter();
+  tone.type = "lowpass";
+  tone.frequency.setValueAtTime(700, at);
+  tone.frequency.linearRampToValueAtTime(3400, at + att * 1.8);
+  tone.frequency.linearRampToValueAtTime(2300, end);
+  tone.Q.value = 0.6;
+  tone.connect(out);
+
+  const osc = ctx.createOscillator();
+  osc.setPeriodicWave(celloWave(midi));
+  osc.frequency.value = midiToHz(midi);
+
+  // One instrument, so no detuned pair the way the voices have -- but no
+  // stopped string sits perfectly still either.
+  const vib = ctx.createOscillator();
+  const vibGain = ctx.createGain();
+  vib.frequency.value = 4.9 + Math.random() * 0.5;
+  vibGain.gain.setValueAtTime(0, at);
+  vibGain.gain.linearRampToValueAtTime(8, Math.min(end, at + 0.55));
+  vib.connect(vibGain).connect(osc.detune);
+  vib.start(at);
+  vib.stop(end + rel + 0.05);
+
+  osc.connect(tone);
+  osc.start(at);
+  osc.stop(end + rel + 0.05);
+
+  // Rosin. Quiet and quick, and kept off the 1-3kHz band the ear is harshest
+  // in -- this is the bow catching the string, not the scrape that reads as
+  // rasp. Without it the note simply appears, which is the tell that nothing
+  // was drawn across anything.
+  const bow = ctx.createBufferSource();
+  bow.buffer = breath;
+  bow.loop = true;
+  const band = ctx.createBiquadFilter();
+  band.type = "bandpass";
+  band.frequency.value = 850;
+  band.Q.value = 0.7;
+  const bowGain = ctx.createGain();
+  bowGain.gain.setValueAtTime(0.0001, at);
+  bowGain.gain.linearRampToValueAtTime(0.022, at + 0.025);
+  bowGain.gain.exponentialRampToValueAtTime(0.003, at + 0.32);
+  bowGain.gain.exponentialRampToValueAtTime(0.0006, end);
+  bow.connect(band).connect(bowGain).connect(out);
+  bow.start(at);
+  bow.stop(end + rel + 0.05);
+}
+
 // Scale steps to the octave, and the highest note anyone sings. Above C6 a
 // voice stops reading as a voice: the tone is nearly a sine by then, since the
 // vowel's own roll-off has taken everything above the fundamental away.
@@ -342,6 +458,7 @@ function ensureCtx() {
     ctx = null;
     held.clear();
     waves.clear();
+    bows.clear();
   }
   if (!ctx) {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -384,10 +501,14 @@ function ensureCtx() {
     wet.gain.value = 0.55;
     choir.connect(predelay).connect(damp).connect(verb).connect(wet).connect(shelf);
 
+    // Still routed through the choir bus, so balance() scales the continuo
+    // with everything else. Giving it its own send would hold it at full level
+    // while eighteen voices drop to a fifth of theirs, and the cello would sit
+    // on top of the piece rather than under it.
     const groundChannel = ctx.createGain();
     groundChannel.gain.value = 1.15;
     groundChannel.connect(choir);
-    ground = { part: PARTS[0], channel: groundChannel };
+    ground = { channel: groundChannel };
 
     breath = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
     const air = breath.getChannelData(0);
@@ -531,7 +652,7 @@ function scheduleStep(s, at) {
   const cycle = Math.floor(s / GROUND.length);
   const local = s % GROUND.length;
 
-  singOo(GROUND[local], at, STEP_DUR * 0.98, ground);
+  bowCello(GROUND[local], at, STEP_DUR * 0.98);
 
   held.forEach((v, letter) => {
     if (v.cycle !== cycle) {
